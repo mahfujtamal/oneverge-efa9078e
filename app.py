@@ -2,20 +2,21 @@ import streamlit as st
 import pandas as pd
 import sqlite3
 import time
+import numpy as np
 
 # Configuration
 DB_NAME = 'predictive_maintenance.db'
 
 def load_data(db_name: str = DB_NAME) -> pd.DataFrame:
     """
-    Loads the latest sensor data from the SQLite database.
+    Loads the sensor data from the SQLite database.
     
-    In a real-time scenario, this function would query only the most recent batch 
-    of data. For this prototype, we load all available data for visualization.
+    For a real-time dashboard, this function loads all available data 
+    to calculate metrics and display trends.
     """
     try:
         conn = sqlite3.connect(db_name)
-        # Query the data, ordering by timestamp to ensure correct plotting sequence
+        # Query the data, ordering by timestamp
         query = "SELECT timestamp, vibration_x, vibration_y, vibration_z, machine_id FROM sensor_readings ORDER BY timestamp ASC"
         df = pd.read_sql_query(query, conn)
         conn.close()
@@ -26,40 +27,49 @@ def load_data(db_name: str = DB_NAME) -> pd.DataFrame:
 
 def display_dashboard(df: pd.DataFrame):
     """
-    Displays the predictive maintenance dashboard using Streamlit components.
+    Displays the predictive maintenance dashboard using Streamlit components, 
+    focusing on key metrics and real-time visualization.
     """
     st.title("⚙️ Predictive Maintenance Dashboard (5G Prototype)")
     st.markdown("---")
-    st.subheader("Machine Vibration Analysis")
     
     if df.empty:
         st.warning("No data available to display. Ensure data has been generated and stored.")
         return
 
-    # Display metadata
-    st.sidebar.header("System Status")
-    st.sidebar.write(f"Total Records Processed: {len(df)}")
-    st.sidebar.write(f"Data Source: {DB_NAME}")
+    # --- 1. Key Metric Cards (Current Status) ---
+    st.header("⚡ System Key Metrics")
     
-    # --- Visualization ---
+    # Calculate key metrics based on the entire dataset for summary
+    latest_vibration_x = df['vibration_x'].iloc[-1]
+    max_vibration_x = df['vibration_x'].max()
+    avg_vibration_x = df['vibration_x'].mean()
     
-    # 1. Time-series chart for Vibration X (Primary focus)
-    st.header("📈 Vibration X Trend Over Time")
-    st.line_chart(df.set_index('timestamp')[['vibration_x']])
-    
-    # 2. Multi-sensor comparison chart
-    st.header("📊 Multi-Sensor Comparison (X, Y, Z)")
-    # We use a multi-plot approach for better comparison
-    fig = pd.DataFrame({
-        'X': df['vibration_x'],
-        'Y': df['vibration_y'],
-        'Z': df['vibration_z']
-    }).set_index('timestamp')
-    
-    st.line_chart(fig)
+    # Simulate Temperature Metric (since it's not stored in the DB)
+    # We use a simple calculation based on the average vibration as a proxy.
+    simulated_temperature = round(avg_vibration_x * 10 + 20, 2) 
 
-    # 3. Data Summary (Optional: showing min/max/mean)
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric(label="Latest Vibration X", value=f"{latest_vibration_x:.2f}")
+    with col2:
+        st.metric(label="Max Vibration X (Alert)", value=f"{max_vibration_x:.2f}", delta=f"{max_vibration_x - avg_vibration_x:.2f}")
+    with col3:
+        st.metric(label="Simulated Temp (°C)", value=f"{simulated_temperature:.2f}")
+
+    st.markdown("---")
+
+    # --- 2. Real-time Line Chart ---
+    st.header("📈 Vibration Trend Analysis (X-Axis)")
+    
+    # Use the entire dataset for the trend line
+    st.line_chart(df.set_index('timestamp')[['vibration_x']])
+
+    # --- 3. Detailed Analysis ---
     st.header("📊 Data Summary Statistics")
+    
+    # Display summary statistics for all three axes
     summary_df = df[['vibration_x', 'vibration_y', 'vibration_z']].describe().T
     st.dataframe(summary_df.round(2))
 
