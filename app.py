@@ -23,7 +23,8 @@ def load_data(db_name: str = DB_NAME) -> pd.DataFrame:
         conn.close()
         return df
     except sqlite3.OperationalError:
-        st.error(f"Database '{db_name}' not found or table 'sensor_readings' does not exist. Please ensure database initialization was successful.")
+        # Handle the case where the table does not exist yet
+        st.warning("⚠️ Waiting for Simulator data... Please ensure data has been generated and stored in the database.")
         return pd.DataFrame()
 
 def display_dashboard(df: pd.DataFrame):
@@ -35,7 +36,8 @@ def display_dashboard(df: pd.DataFrame):
     st.markdown("---")
     
     if df.empty:
-        st.warning("No data available to display. Ensure data has been generated and stored.")
+        # This block is now hit if load_data returns an empty DF due to the OperationalError
+        # The warning message is handled inside load_data, so we just exit gracefully here.
         return
 
     # --- 1. Key Metric Cards (Current Status) ---
