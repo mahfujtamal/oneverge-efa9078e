@@ -7,6 +7,7 @@ from database import initialize_database # Import the initialization function
 
 # Configuration
 DB_NAME = 'predictive_maintenance.db'
+REFRESH_INTERVAL_SECONDS = 5 # Set the refresh rate
 
 def load_data(db_name: str = DB_NAME) -> pd.DataFrame:
     """
@@ -36,8 +37,7 @@ def display_dashboard(df: pd.DataFrame):
     st.markdown("---")
     
     if df.empty:
-        # This block is now hit if load_data returns an empty DF due to the OperationalError
-        # The warning message is handled inside load_data, so we just exit gracefully here.
+        # If data is empty, the warning message is already displayed in load_data
         return
 
     # --- 1. Key Metric Cards (Current Status) ---
@@ -79,18 +79,30 @@ def display_dashboard(df: pd.DataFrame):
 
 def main():
     """
-    Main function to run the Streamlit application.
+    Main function to run the Streamlit application with periodic refreshing.
     """
     # CRITICAL FIX: Ensure the database schema is initialized before attempting to load data.
     initialize_database(DB_NAME)
     
-    # Use st.cache_data to prevent reloading the database on every rerun, improving performance.
-    @st.cache_data(ttl=60) # Cache data for 60 seconds
-    def get_data():
-        return load_data()
+    # Use st.empty() to create a container that will be updated in place, 
+    # simulating a real-time dashboard refresh.
+    placeholder = st.empty()
 
-    data = get_data()
-    display_dashboard(data)
+    while True:
+        try:
+            # Load data without caching
+            data = load_data()
+            
+            # Display the dashboard content in the placeholder
+            with placeholder:
+                display_dashboard(data)
+            
+            # Wait for the specified interval before refreshing
+            time.sleep(REFRESH_INTERVAL_SECONDS)
+            
+        except Exception as e:
+            st.error(f"An unexpected error occurred during dashboard refresh: {e}")
+            time.sleep(5) # Wait before retrying
 
 if __name__ == '__main__':
     # To run this dashboard, execute: streamlit run app.py
