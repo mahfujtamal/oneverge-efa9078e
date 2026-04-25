@@ -3,6 +3,7 @@ import pandas as pd
 import sqlite3
 import time
 import numpy as np
+from database import initialize_database # Import the initialization function
 
 # Configuration
 DB_NAME = 'predictive_maintenance.db'
@@ -22,7 +23,7 @@ def load_data(db_name: str = DB_NAME) -> pd.DataFrame:
         conn.close()
         return df
     except sqlite3.OperationalError:
-        st.error(f"Database '{db_name}' not found or table 'sensor_readings' does not exist. Please run database.py first.")
+        st.error(f"Database '{db_name}' not found or table 'sensor_readings' does not exist. Please ensure database initialization was successful.")
         return pd.DataFrame()
 
 def display_dashboard(df: pd.DataFrame):
@@ -78,6 +79,9 @@ def main():
     """
     Main function to run the Streamlit application.
     """
+    # CRITICAL FIX: Ensure the database schema is initialized before attempting to load data.
+    initialize_database(DB_NAME)
+    
     # Use st.cache_data to prevent reloading the database on every rerun, improving performance.
     @st.cache_data(ttl=60) # Cache data for 60 seconds
     def get_data():
