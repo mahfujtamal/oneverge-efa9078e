@@ -35,9 +35,7 @@ Deno.serve(async (req) => {
       dob,
       password,
       active_services,
-      scheduled_services,
       active_addon_plans,
-      scheduled_addon_plans,
       speed,
     } = body || {};
 
@@ -61,28 +59,18 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Insert customer record (without password)
+    // Insert identity-only customer record. All service/billing/location
+    // data is owned by customer_connections (created below).
     const { data: inserted, error: insertErr } = await supabase
       .from("customers")
-      .insert([
-        {
-          user_id,
-          display_name,
-          phone_number,
-          email,
-          address,
-          area_id,
-          isp_id: isp_id || null,
-          broadband_plan_id: broadband_plan_id || null,
-          nid: nid != null ? Number(nid) : null,
-          dob: dob || null,
-          active_services: active_services || [],
-          scheduled_services: scheduled_services || [],
-          speed: speed || "50 Mbps",
-          balance: 0,
-          account_status: "account created",
-        },
-      ])
+      .insert([{
+        user_id,
+        display_name,
+        phone_number,
+        email,
+        nid: nid != null ? Number(nid) : null,
+        dob: dob || null,
+      }])
       .select()
       .single();
 
@@ -119,14 +107,15 @@ Deno.serve(async (req) => {
         isp_id: isp_id || null,
         area_id: area_id || null,
         broadband_plan_id: broadband_plan_id || null,
+        scheduled_broadband_plan_id: broadband_plan_id || null,
         speed: speed || "50 Mbps",
         address: address || null,
         account_status: "account created",
         balance: 0,
         active_services: active_services || [],
-        scheduled_services: scheduled_services || [],
+        scheduled_services: active_services || [],
         active_addon_plans: active_addon_plans || {},
-        scheduled_addon_plans: scheduled_addon_plans || {},
+        scheduled_addon_plans: active_addon_plans || {},
         is_primary: true,
       }])
       .select("id")
