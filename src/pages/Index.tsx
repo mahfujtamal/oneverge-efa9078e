@@ -115,6 +115,7 @@ const Index = () => {
         if (parsed.selectedISP) setSelectedISP(parsed.selectedISP);
         if (parsed.selectedOffer) setSelectedOffer(parsed.selectedOffer);
         if (parsed.transactionId) setTransactionId(parsed.transactionId);
+        if (parsed.areaId) setAreaId(parsed.areaId);
         if (parsed.location) setMobileView("isp");
       } catch (e) {
         console.error("Recovery failed", e);
@@ -131,10 +132,10 @@ const Index = () => {
     if (!routerState?.forceReset && hasActiveSession) {
       localStorage.setItem(
         "oneverge_onboarding_state",
-        JSON.stringify({ step, location, userData, active, selectedISP, selectedOffer, transactionId }),
+        JSON.stringify({ step, location, areaId, userData, active, selectedISP, selectedOffer, transactionId }),
       );
     }
-  }, [step, location, userData, active, selectedISP, selectedOffer, transactionId, routerState]);
+  }, [step, location, areaId, userData, active, selectedISP, selectedOffer, transactionId, routerState]);
 
   // --- PRICING BREAKDOWN FETCH (Step 7 summary) ---
   // Pulls per-component split (base / VAT / tax / surcharge) for:
