@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 
 const EMPTY_USER_DATA = { name: "", phone: "", email: "", address: "", nid: "", dob: "", password: "" };
 const VALID_ONBOARDING_STEPS = new Set([1, 2, 3, 4, 5, 5.5, 7, 8]);
-const DASHBOARD_ACCOUNT_STATUSES = new Set(["activation payment done", "active", "expired", "terminated"]);
+const DASHBOARD_ACCOUNT_STATUSES = new Set(["active", "expired", "terminated"]);
 
 export function normalizeOnboardingStep(value: unknown): number {
   const next = typeof value === "string" ? Number(value) : Number(value);
