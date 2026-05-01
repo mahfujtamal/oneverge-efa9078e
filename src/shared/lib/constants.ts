@@ -205,7 +205,7 @@ export const ONEVERGE_SUITE_RATES: Record<string, number> = {
   "smart-home": 1200,
   mobility: 900,
   gaming: 450,
-  broadband: 0,
+  broadband: 2000,
 };
 
 export const PRICING_CONFIG = { RELOCATION_FEE: 500, CURRENCY: "BDT " };
