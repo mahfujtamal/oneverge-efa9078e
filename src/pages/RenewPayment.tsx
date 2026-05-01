@@ -27,14 +27,17 @@ const RenewPayment = () => {
   useEffect(() => {
     const refreshFromDb = async () => {
       if (!sessionData?.id) return;
-      const { data, error } = await (supabase as any)
-        .from("customers")
+      const connId = sessionData?.connection_id;
+      let query = (supabase as any)
+        .from("customer_connections")
         .select("*")
-        .eq("id", sessionData.id)
-        .maybeSingle();
+        .eq("customer_id", sessionData.id);
+      if (connId) query = query.eq("id", connId);
+      else query = query.eq("is_primary", true);
+      const { data, error } = await query.maybeSingle();
       if (error || !data) return;
 
-      const merged = { ...sessionData, ...data };
+      const merged = { ...sessionData, ...data, connection_id: data.id };
       if (
         JSON.stringify(merged.scheduled_services) !== JSON.stringify(sessionData.scheduled_services) ||
         JSON.stringify(merged.active_services) !== JSON.stringify(sessionData.active_services) ||

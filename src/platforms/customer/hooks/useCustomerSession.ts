@@ -45,10 +45,10 @@ export function useCustomerSession(routerState: unknown) {
     const refreshFromDb = async () => {
       if (!sessionData?.id) return;
 
-      // Fetch customer identity row
+      // Fetch customer identity row (identity-only — no service/billing columns)
       const { data: customer, error: custErr } = await (supabase as any)
         .from("customers")
-        .select("id, user_id, display_name, email, phone_number, nid, dob, ispName, location")
+        .select("id, user_id, display_name, email, phone_number, nid, dob, created_at")
         .eq("id", sessionData.id)
         .maybeSingle();
       if (cancelled || custErr || !customer) return;

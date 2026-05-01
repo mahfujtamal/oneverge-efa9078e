@@ -54,18 +54,20 @@ const BillingVault = () => {
 
     const refreshFromDb = async () => {
       if (!sessionData?.id) return;
-      const { data, error } = await (supabase as any)
-        .from("customers")
+      // All service/billing data lives in customer_connections, not customers.
+      const connId = sessionData.connection_id;
+      let query = (supabase as any)
+        .from("customer_connections")
         .select("*")
-        .eq("id", sessionData.id)
-        .maybeSingle();
+        .eq("customer_id", sessionData.id);
+      if (connId) query = query.eq("id", connId);
+      else query = query.eq("is_primary", true);
+      const { data, error } = await query.maybeSingle();
       if (cancelled || error || !data) return;
 
-      // Use the latest sessionData via functional update so concurrent
-      // refreshes always merge against the freshest local copy.
       setSessionData((prev: any) => {
         const base = prev || {};
-        const merged = { ...base, ...data };
+        const merged = { ...base, ...data, connection_id: data.id };
         const changed =
           merged.created_at !== base.created_at ||
           merged.balance !== base.balance ||

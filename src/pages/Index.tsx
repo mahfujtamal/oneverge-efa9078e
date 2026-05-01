@@ -295,9 +295,9 @@ const Index = () => {
     if (userData?.id) {
       try {
         const { error } = await (supabase as any)
-          .from("customers")
-          .update({ account_status: "feasibility done" }) // 2. Post-Feasibility Status
-          .eq("id", userData.id);
+          .from("customer_connections")
+          .update({ account_status: "feasibility done" })
+          .eq("id", userData.connection_id);
 
         if (error) throw error;
 
@@ -342,9 +342,13 @@ const Index = () => {
           nextRenewalDate: new Date(),
         });
 
-        // Refresh local userData with the post-activation state
-        const { data } = await (supabase as any).from("customers").select("*").eq("id", userData.id).maybeSingle();
-        if (data) setUserData((prev: any) => ({ ...prev, ...data }));
+        // Refresh local userData with the post-activation state from the connection row
+        const { data } = await (supabase as any)
+          .from("customer_connections")
+          .select("*")
+          .eq("id", userData.connection_id)
+          .maybeSingle();
+        if (data) setUserData((prev: any) => ({ ...prev, ...data, connection_id: data.id }));
       } catch (err) {
         console.error("Failed to finalise activation payment:", err);
       }

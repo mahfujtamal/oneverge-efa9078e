@@ -164,11 +164,14 @@ export function useOnboardingHandlers(state: OnboardingState, navigate: (path: s
           .eq("id", connectionId);
         if (error) throw error;
       } else if (userData?.id) {
-        // New customer — update customers table
-        const { error } = await (supabase as any)
-          .from("customers")
-          .update({ account_status: "feasibility done" })
-          .eq("id", userData.id);
+        // New customer — update the primary connection row
+        const connId = userData.connection_id;
+        const connQuery = (supabase as any)
+          .from("customer_connections")
+          .update({ account_status: "feasibility done" });
+        const { error } = await (connId
+          ? connQuery.eq("id", connId)
+          : connQuery.eq("customer_id", userData.id).eq("is_primary", true));
         if (error) throw error;
         setUserData((prev: any) => ({ ...prev, account_status: "feasibility done" }));
       }
@@ -208,12 +211,15 @@ export function useOnboardingHandlers(state: OnboardingState, navigate: (path: s
           nextRenewalDate: new Date(),
         });
 
-        const { data } = await (supabase as any)
-          .from("customers")
-          .select("*")
-          .eq("id", userData.id)
-          .maybeSingle();
-        if (data) setUserData((prev: any) => ({ ...prev, ...data }));
+        const connId = userData.connection_id;
+        if (connId) {
+          const { data } = await (supabase as any)
+            .from("customer_connections")
+            .select("*")
+            .eq("id", connId)
+            .maybeSingle();
+          if (data) setUserData((prev: any) => ({ ...prev, ...data, connection_id: data.id }));
+        }
       } catch (err) {
         console.error("Failed to finalise activation payment:", err);
       }
