@@ -226,63 +226,58 @@ const Index = () => {
     })();
   }, [step, checkoutBroadbandPlanId, selectedOffer?.id, selectedISP?.id, active]);
 
-  // Fetch all active broadband plans for this ISP+area when entering step 7.
-  // Uses state when available (fresh onboarding), falls back to a DB lookup
-  // via customer_connections when state was lost (e.g. re-login).
+  // Fetch all active broadband plans for this ISP when entering step 7.
+  // Queries broadband_plans directly by isp_id — no isp_area_plans join needed.
+  // Falls back to customer_connections if isp_id is not yet in state (e.g. re-login).
   useEffect(() => {
     if (step !== 7) return;
 
     (async () => {
       try {
         let ispId = selectedISP?.id || userData?.isp_id;
-        let effectiveAreaId = areaId || userData?.area_id;
         let dbBroadbandPlanId: string | null = null;
 
-        if (!ispId || !effectiveAreaId) {
+        // If isp_id not in state, fetch it directly from the connection row.
+        if (!ispId) {
           const connId = userData?.connection_id;
           const custId = userData?.id;
           if (!connId && !custId) return;
 
           const { data: conn } = await (supabase as any)
             .from("customer_connections")
-            .select("isp_id, area_id, broadband_plan_id")
+            .select("isp_id, broadband_plan_id")
             .eq(connId ? "id" : "customer_id", connId || custId)
             .order("is_primary", { ascending: false })
             .limit(1)
             .maybeSingle();
 
-          if (!conn) return;
-          ispId = ispId || conn.isp_id;
-          effectiveAreaId = effectiveAreaId || conn.area_id;
+          if (!conn?.isp_id) return;
+          ispId = conn.isp_id;
           dbBroadbandPlanId = conn.broadband_plan_id || null;
         }
 
-        if (!ispId || !effectiveAreaId) return;
-
+        // Query broadband_plans directly — avoids dependency on isp_area_plans pivot data.
         const { data, error } = await (supabase as any)
-          .from("isp_area_plans")
-          .select("broadband_plans!inner(id, name, speed, price, base_price, is_active)")
+          .from("broadband_plans")
+          .select("id, name, speed, price, base_price, is_active")
           .eq("isp_id", ispId)
-          .eq("area_id", effectiveAreaId);
+          .eq("is_active", true);
 
         if (error) throw error;
 
-        const plans = (data || [])
-          .map((r: any) => r.broadband_plans)
-          .filter((p: any) => p?.is_active !== false)
-          .map((p: any) => ({
-            id: p.id,
-            name: p.name || p.speed,
-            speed: p.speed,
-            price: Number(p.price ?? p.base_price ?? 0),
-          }));
+        const plans = (data || []).map((p: any) => ({
+          id: p.id,
+          name: p.name || p.speed,
+          speed: p.speed,
+          price: Number(p.price ?? p.base_price ?? 0),
+        }));
 
         setBroadbandPlans(plans);
 
         // Pre-select the plan: prefer what the customer chose at step 3,
-        // fall back to their current plan from the DB.
+        // fall back to their active plan from the DB.
         if (!checkoutBroadbandPlanId) {
-          const preferredId = selectedOffer?.id || dbBroadbandPlanId;
+          const preferredId = selectedOffer?.id || dbBroadbandPlanId || userData?.broadband_plan_id;
           const match = plans.find((p: any) => p.id === preferredId);
           if (match) {
             setCheckoutBroadbandPlanId(match.id);
@@ -295,7 +290,7 @@ const Index = () => {
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, selectedISP?.id, userData?.isp_id, areaId, userData?.area_id, userData?.connection_id, userData?.id]);
+  }, [step, selectedISP?.id, userData?.isp_id, userData?.connection_id, userData?.id]);
 
   // --- HANDLERS ---
   const handleLocationConfirm = (locData: { displayName: string; areaId: string }) => {
