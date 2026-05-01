@@ -249,15 +249,19 @@ export default function RenewalSimulator() {
       const { data, error } = await supabase
         .from("customers")
         .select(
-          "id, display_name, email, user_id, account_status, balance, scheduled_services, active_services, created_at, broadband_plan_id, isp_id, area_id, speed",
+          "id, display_name, email, user_id, created_at, customer_connections!inner(account_status, balance, scheduled_services, active_services, broadband_plan_id, isp_id, area_id, speed)",
         )
-        .neq("account_status", "account created")
+        .neq("customer_connections.account_status", "account created")
         .order("created_at", { ascending: false })
         .limit(500);
       if (error) {
         toast.error("Failed to load customers", { description: error.message });
       } else {
-        setCustomers((data as any) || []);
+        const flat = (data as any[] || []).map((c) => {
+          const conn = Array.isArray(c.customer_connections) ? c.customer_connections[0] : c.customer_connections;
+          return { ...c, ...(conn || {}) };
+        });
+        setCustomers(flat);
       }
       setLoading(false);
     })();

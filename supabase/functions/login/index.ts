@@ -39,7 +39,7 @@ Deno.serve(async (req) => {
     const id = identifier.trim();
     const { data: customer, error: lookupErr } = await supabase
       .from("customers")
-      .select(`*, areas ( name, districts ( name ) )`)
+      .select("*")
       .or(`email.eq.${id},user_id.eq.${id},phone_number.eq.${id}`)
       .maybeSingle();
 
