@@ -52,7 +52,9 @@ const Index = () => {
   const [checkoutBroadbandPlanId, setCheckoutBroadbandPlanId] = useState<string | null>(null);
   const [checkoutBasePrice, setCheckoutBasePrice] = useState<number | null>(null);
   const [checkoutSpeed, setCheckoutSpeed] = useState<string | null>(null);
-  const [broadbandPlans, setBroadbandPlans] = useState<Array<{ id: string; name: string; speed: string; price: number }>>([]);
+  const [broadbandPlans, setBroadbandPlans] = useState<
+    Array<{ id: string; name: string; speed: string; price: number }>
+  >([]);
   // Per-component pricing split (Base / VAT / Tax / Surcharge) for Step 7 summary
   const [pricingBreakdown, setPricingBreakdown] = useState<{
     items: Array<{
@@ -375,7 +377,12 @@ const Index = () => {
   };
 
   // --- PAYMENT GATEWAY (Step 7) ---
-  const handlePaymentComplete = async (txn: string, paymentMethod?: string, _installationTxn?: string, serviceAmountFromGateway?: number) => {
+  const handlePaymentComplete = async (
+    txn: string,
+    paymentMethod?: string,
+    _installationTxn?: string,
+    serviceAmountFromGateway?: number,
+  ) => {
     // NOTE: installation txn (`_installationTxn`) is intentionally NOT passed to
     // finalisePayment — it must NEVER appear in billing_history or wallet flow.
     // It already exists as its own row in the `payments` table (written by
