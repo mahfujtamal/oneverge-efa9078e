@@ -9,6 +9,7 @@ interface AddonPlanPickerProps {
   plans: AddonPlan[];
   selectedPlanId: string | null;
   onSelect: (planId: string) => void;
+  compact?: boolean;
 }
 
 const AddonPlanPicker = ({
@@ -17,8 +18,38 @@ const AddonPlanPicker = ({
   plans,
   selectedPlanId,
   onSelect,
+  compact = false,
 }: AddonPlanPickerProps) => {
   if (plans.length === 0) return null;
+
+  if (compact) {
+    return (
+      <div className="space-y-1 px-0.5">
+        {plans.map((plan) => {
+          const selected = plan.id === selectedPlanId;
+          return (
+            <button
+              key={plan.id}
+              type="button"
+              onClick={() => onSelect(plan.id)}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl border text-left transition-all duration-200 ${
+                selected
+                  ? "bg-white/5 border-white/20"
+                  : "bg-black/30 border-white/5 hover:border-white/15 hover:bg-white/[0.03]"
+              }`}
+            >
+              <span className={`text-[9px] font-black uppercase tracking-tight ${selected ? "text-white" : "text-gray-400"}`}>
+                {selected && "✓ "}{plan.name}
+              </span>
+              <span className={`font-mono text-[9px] font-black ${selected ? "text-cyan-400" : "text-gray-500"}`}>
+                {PRICING_CONFIG.CURRENCY}{(plan.price ?? 0).toLocaleString()}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-2">
@@ -54,7 +85,6 @@ const AddonPlanPicker = ({
                 {PRICING_CONFIG.CURRENCY} {(plan.price ?? 0).toLocaleString()}
               </p>
 
-              {/* Price breakdown — visible on hover */}
               <div className="mt-2 space-y-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                 {plan.base_price > 0 && (
                   <p className="text-[8px] text-gray-500 font-mono">

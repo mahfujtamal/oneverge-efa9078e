@@ -241,8 +241,8 @@ const ISPComparison = ({ location, addonTotal = 0, onSelect }: ISPComparisonProp
                               </button>
                             </TooltipTrigger>
                             <TooltipContent
-                              side="left"
-                              className="bg-gray-950 border border-white/10 p-3 rounded-xl shadow-2xl min-w-[180px]"
+                              side="top"
+                              className="bg-gray-950 border border-white/10 p-3 rounded-xl shadow-2xl min-w-[180px] z-[200]"
                             >
                               <p className="text-[8px] font-black uppercase tracking-widest text-gray-500 mb-2">
                                 Cost Summary
