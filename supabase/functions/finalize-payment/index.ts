@@ -151,6 +151,16 @@ Deno.serve(async (req) => {
       );
     }
 
+    // When the payment targets a connection row, sync the parent customers
+    // record too — the login edge function reads from customers.account_status,
+    // so without this the user would be routed back to the payment step on next login.
+    if (useConnection && cycleConsumed && body.customerId) {
+      await supabase
+        .from("customers")
+        .update({ account_status: "active" })
+        .eq("id", body.customerId);
+    }
+
     // Flip payment to success.
     const { error: payErr } = await supabase
       .from("payments")
