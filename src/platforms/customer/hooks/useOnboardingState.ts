@@ -24,7 +24,7 @@ export function useOnboardingState(routerState: unknown) {
     name: "", phone: "", email: "", address: "", nid: "", dob: "", password: "",
   });
   const [active, setActive] = useState<Record<string, boolean>>({ broadband: true });
-  // Maps service_id -> plan_id for chosen add-on plans
+  // Maps addon_id -> plan_id for chosen add-on plans
   const [selectedAddonPlans, setSelectedAddonPlans] = useState<Record<string, string>>({});
   const [transactionId, setTransactionId] = useState("");
   const [connectionId, setConnectionId] = useState<string | null>(null);

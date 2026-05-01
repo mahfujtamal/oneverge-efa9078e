@@ -29,7 +29,7 @@ export function useScheduleConfig(
     return initial;
   });
 
-  // Maps service_id → plan_id for next-cycle add-on plan selections
+  // Maps addon_id → plan_id for next-cycle add-on plan selections
   const [scheduledAddonPlans, setScheduledAddonPlans] = useState<Record<string, string>>(() => {
     const saved = sessionData?.scheduled_addon_plans;
     return saved && typeof saved === "object" ? saved : {};
