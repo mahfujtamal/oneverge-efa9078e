@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 const EMPTY_USER_DATA = { name: "", phone: "", email: "", address: "", nid: "", dob: "", password: "" };
 const VALID_ONBOARDING_STEPS = new Set([1, 2, 3, 4, 5, 5.5, 7, 8]);
@@ -96,42 +97,65 @@ export function useOnboardingState(routerState: unknown) {
       return;
     }
 
-    const hasActiveSession = !!storedSession;
-    const saved = localStorage.getItem("oneverge_onboarding_state");
-    if (saved && hasActiveSession && !state?.isMigration) {
-      try {
-        const parsed = JSON.parse(saved);
-        setSafeStep(parsed.step);
-        setLocation(parsed.location || "");
-        setUserData(parsed.userData || EMPTY_USER_DATA);
-        setActive(parsed.active || { broadband: true });
-        setSelectedAddonPlans(parsed.selectedAddonPlans || {});
-        if (parsed.selectedISP) setSelectedISP(parsed.selectedISP);
-        if (parsed.selectedOffer) setSelectedOffer(parsed.selectedOffer);
-        if (parsed.transactionId) setTransactionId(parsed.transactionId);
-        if (parsed.location) setMobileView("isp");
-      } catch (e) {
-        console.error("Recovery failed", e);
-      }
-    }
-  }, [routerState]);
+    // Restore landing step from the primary customer_connections row.
+    const userId = storedSession?.id;
+    if (!userId) return;
 
-  // Persistence — password field is stripped before saving (security fix)
-  useEffect(() => {
-    const storedSession = readStoredSession();
-    const hasActiveSession = !!storedSession;
-    const state = routerState as any;
-    if (!state?.forceReset && hasActiveSession && !shouldOpenDashboardForStatus(storedSession?.account_status)) {
-      const { password: _pw, ...safeUserData } = userData;
-      localStorage.setItem(
-        "oneverge_onboarding_state",
-        JSON.stringify({
-          step, location, userData: safeUserData, active,
-          selectedAddonPlans, selectedISP, selectedOffer, transactionId,
-        }),
-      );
-    }
-  }, [step, location, userData, active, selectedAddonPlans, selectedISP, selectedOffer, transactionId, routerState]);
+    (async () => {
+      try {
+        const { data: conn } = await (supabase as any)
+          .from("customer_connections")
+          .select("id, account_status, isp_id, broadband_plan_id, scheduled_services")
+          .eq("customer_id", userId)
+          .order("is_primary", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!conn) return;
+
+        if (conn.account_status === "account created") {
+          setUserData({ ...storedSession, connection_id: conn.id, password: undefined });
+          setConnectionId(conn.id);
+          setSafeStep(5);
+        } else if (conn.account_status === "feasibility done") {
+          setUserData({ ...storedSession, connection_id: conn.id, password: undefined });
+          setConnectionId(conn.id);
+          setLocation(storedSession.location || storedSession.address || "");
+
+          if (conn.isp_id) setSelectedISP({ id: conn.isp_id, name: storedSession.ispName || "" });
+
+          if (conn.broadband_plan_id) {
+            const { data: plan } = await (supabase as any)
+              .from("broadband_plans")
+              .select("id, name, speed, price, base_price")
+              .eq("id", conn.broadband_plan_id)
+              .maybeSingle();
+            if (plan) {
+              setSelectedOffer({
+                id: plan.id,
+                name: plan.name || plan.speed,
+                speed: plan.speed,
+                price: Number(plan.price ?? plan.base_price ?? 0),
+              });
+            }
+          }
+
+          const services: string[] = conn.scheduled_services || [];
+          setActive(
+            services.reduce(
+              (acc: Record<string, boolean>, id: string) => ({ ...acc, [id]: true }),
+              { broadband: true },
+            ),
+          );
+
+          setSafeStep(7);
+        }
+        // "active", "expired", "terminated" → Landing.tsx routes these to /dashboard
+      } catch (err) {
+        console.error("Session restoration failed:", err);
+      }
+    })();
+  }, [routerState]);
 
   return {
     step, setStep: setSafeStep,
