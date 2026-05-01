@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { AlertCircle, Eye, EyeOff } from "lucide-react";
+import { normalizeOnboardingStep } from "@/platforms/customer/hooks/useOnboardingState";
 
 const Login = () => {
   const [identifier, setIdentifier] = useState("");
@@ -67,7 +68,12 @@ const Login = () => {
       };
 
       const savedStep = localStorage.getItem("oneverge_last_step");
-      const existingState = JSON.parse(localStorage.getItem("oneverge_onboarding_state") || "{}");
+      let existingState: Record<string, any> = {};
+      try {
+        existingState = JSON.parse(localStorage.getItem("oneverge_onboarding_state") || "{}");
+      } catch {
+        localStorage.removeItem("oneverge_onboarding_state");
+      }
 
       const restoredISP = resolvedIspId
         ? { id: resolvedIspId, name: resolvedIspName }
@@ -105,28 +111,34 @@ const Login = () => {
         dbFallbackStep = 7;
       }
 
-      localStorage.setItem("oneverge_session", JSON.stringify(enrichedSession));
-      localStorage.setItem("oneverge_user", JSON.stringify(enrichedSession));
-      localStorage.setItem(
-        "oneverge_onboarding_state",
-        JSON.stringify({
-          ...existingState,
-          userData: enrichedSession,
-          selectedISP: restoredISP,
-          selectedOffer: restoredOffer,
-          location: restoredLocation,
-          active: restoredActive,
-          step: savedStep ? parseInt(savedStep, 10) : dbFallbackStep,
-        }),
-      );
-      localStorage.removeItem("oneverge_last_step");
-
-      if (
+      const shouldOpenDashboard =
         user.account_status === "activation payment done" ||
         user.account_status === "active" ||
         user.account_status === "expired" ||
-        user.account_status === "terminated"
-      ) {
+        user.account_status === "terminated";
+
+      localStorage.setItem("oneverge_session", JSON.stringify(enrichedSession));
+      localStorage.setItem("oneverge_user", JSON.stringify(enrichedSession));
+
+      if (shouldOpenDashboard) {
+        localStorage.removeItem("oneverge_onboarding_state");
+      } else {
+        localStorage.setItem(
+          "oneverge_onboarding_state",
+          JSON.stringify({
+            ...existingState,
+            userData: enrichedSession,
+            selectedISP: restoredISP,
+            selectedOffer: restoredOffer,
+            location: restoredLocation,
+            active: restoredActive,
+            step: normalizeOnboardingStep(savedStep ?? dbFallbackStep),
+          }),
+        );
+      }
+      localStorage.removeItem("oneverge_last_step");
+
+      if (shouldOpenDashboard) {
         navigate("/dashboard");
       } else {
         navigate("/");
