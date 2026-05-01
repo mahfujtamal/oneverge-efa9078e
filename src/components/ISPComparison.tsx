@@ -1,19 +1,37 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { Shield, Zap, ChevronRight, Search, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { Zap, ChevronRight, Search, ChevronDown, ChevronUp, Loader2, Info } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { INFRA_LABELS, PRICING_CONFIG } from "@/lib/constants";
 import { supabase } from "@/integrations/supabase/client";
 
 interface ISPComparisonProps {
   location: string;
+  addonTotal?: number;
   onSelect: (isp: any, offer: any) => void;
 }
 
-const ISPComparison = ({ location, onSelect }: ISPComparisonProps) => {
+const ISPComparison = ({ location, addonTotal = 0, onSelect }: ISPComparisonProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedIsp, setExpandedIsp] = useState<string | null>(null);
   const [dbIsps, setDbIsps] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // Maps isp_id → installation fee total
+  const [installFees, setInstallFees] = useState<Record<string, number>>({});
+
+  const fetchInstallFee = async (ispId: string) => {
+    if (installFees[ispId] !== undefined) return;
+    try {
+      const { data } = await (supabase as any).rpc("calculate_detailed_installation_fee", {
+        p_isp_id: ispId,
+      });
+      if (data) {
+        setInstallFees((prev) => ({ ...prev, [ispId]: Number(data.total_fee) || 0 }));
+      }
+    } catch {
+      setInstallFees((prev) => ({ ...prev, [ispId]: 0 }));
+    }
+  };
 
   // Dynamic Relational Fetch: Resolves Area -> ISPs -> Specific ISP-Tagged Plans
   useEffect(() => {
@@ -145,7 +163,11 @@ const ISPComparison = ({ location, onSelect }: ISPComparisonProps) => {
               >
                 {/* ISP HEADER */}
                 <button
-                  onClick={() => setExpandedIsp(isExpanded ? null : isp.id)}
+                  onClick={() => {
+                    const next = isExpanded ? null : isp.id;
+                    setExpandedIsp(next);
+                    if (next) fetchInstallFee(isp.id);
+                  }}
                   className="w-full p-5 flex justify-between items-center group"
                 >
                   <div className="flex items-center gap-4">
@@ -186,34 +208,82 @@ const ISPComparison = ({ location, onSelect }: ISPComparisonProps) => {
                       exit={{ height: 0, opacity: 0 }}
                       className="px-4 pb-4 space-y-2"
                     >
-                      {allOffers.map((offer: any, idx: number) => (
-                        <button
-                          key={idx}
-                          onClick={() => onSelect(isp, offer)}
-                          className="w-full flex items-center justify-between p-4 rounded-2xl bg-black/40 border border-white/5 hover:border-cyan-400/50 hover:bg-black/60 transition-all group/offer"
-                        >
-                          <div className="text-left">
-                            <p className="text-xl font-black italic text-white leading-none tracking-tighter group-hover/offer:text-cyan-400 transition-colors">
-                              {offer.speed}
-                            </p>
-                            <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest mt-1">
-                              {offer.name}
-                            </p>
-                          </div>
-                          <div className="text-right flex items-center gap-4">
-                            <div className="space-y-0.5">
-                              {/* Automatically uses the newly generated full price column from the DB */}
-                              <p className="text-sm font-black text-white">
-                                {PRICING_CONFIG.CURRENCY} {offer.price.toLocaleString()}
+                      {allOffers.map((offer: any, idx: number) => {
+                        const installFee = installFees[isp.id] ?? null;
+                        const monthlyTotal = offer.price + addonTotal;
+                        return (
+                          <Tooltip key={idx}>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={() => onSelect(isp, offer)}
+                                className="w-full flex items-center justify-between p-4 rounded-2xl bg-black/40 border border-white/5 hover:border-cyan-400/50 hover:bg-black/60 transition-all group/offer"
+                              >
+                                <div className="text-left">
+                                  <p className="text-xl font-black italic text-white leading-none tracking-tighter group-hover/offer:text-cyan-400 transition-colors">
+                                    {offer.speed}
+                                  </p>
+                                  <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest mt-1">
+                                    {offer.name}
+                                  </p>
+                                </div>
+                                <div className="text-right flex items-center gap-4">
+                                  <div className="space-y-0.5">
+                                    <p className="text-sm font-black text-white">
+                                      {PRICING_CONFIG.CURRENCY} {offer.price.toLocaleString()}
+                                    </p>
+                                    <p className="text-[7px] font-black text-gray-600 uppercase">Monthly</p>
+                                  </div>
+                                  <Info size={13} className="text-gray-600 group-hover/offer:text-cyan-400 transition-colors" />
+                                  <div className="h-8 w-8 rounded-full bg-white/5 flex items-center justify-center group-hover/offer:bg-cyan-400 group-hover/offer:text-black transition-all">
+                                    <ChevronRight size={14} strokeWidth={3} />
+                                  </div>
+                                </div>
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent
+                              side="left"
+                              className="bg-gray-950 border border-white/10 p-3 rounded-xl shadow-2xl min-w-[180px]"
+                            >
+                              <p className="text-[8px] font-black uppercase tracking-widest text-gray-500 mb-2">
+                                Cost Summary
                               </p>
-                              <p className="text-[7px] font-black text-gray-600 uppercase">Monthly</p>
-                            </div>
-                            <div className="h-8 w-8 rounded-full bg-white/5 flex items-center justify-center group-hover/offer:bg-cyan-400 group-hover/offer:text-black transition-all">
-                              <ChevronRight size={14} strokeWidth={3} />
-                            </div>
-                          </div>
-                        </button>
-                      ))}
+                              <div className="space-y-1.5">
+                                <div className="flex justify-between gap-6">
+                                  <span className="text-[9px] text-gray-400 uppercase font-bold">Broadband</span>
+                                  <span className="text-[9px] font-mono font-black text-white">
+                                    {PRICING_CONFIG.CURRENCY}{offer.price.toLocaleString()}
+                                  </span>
+                                </div>
+                                {addonTotal > 0 && (
+                                  <div className="flex justify-between gap-6">
+                                    <span className="text-[9px] text-gray-400 uppercase font-bold">Add-ons</span>
+                                    <span className="text-[9px] font-mono font-black text-white">
+                                      {PRICING_CONFIG.CURRENCY}{addonTotal.toLocaleString()}
+                                    </span>
+                                  </div>
+                                )}
+                                <div className="flex justify-between gap-6">
+                                  <span className="text-[9px] text-gray-400 uppercase font-bold">Installation</span>
+                                  <span className="text-[9px] font-mono font-black text-white">
+                                    {installFee === null ? "..." : `${PRICING_CONFIG.CURRENCY}${installFee.toLocaleString()}`}
+                                  </span>
+                                </div>
+                                <div className="border-t border-white/10 pt-1.5 flex justify-between gap-6">
+                                  <span className="text-[9px] text-cyan-400 uppercase font-black">Monthly</span>
+                                  <span className="text-[9px] font-mono font-black text-cyan-400">
+                                    {PRICING_CONFIG.CURRENCY}{monthlyTotal.toLocaleString()}
+                                  </span>
+                                </div>
+                                {installFee !== null && installFee > 0 && (
+                                  <p className="text-[7px] text-gray-600 uppercase tracking-wider pt-0.5">
+                                    + {PRICING_CONFIG.CURRENCY}{installFee.toLocaleString()} one-time install
+                                  </p>
+                                )}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        );
+                      })}
                     </motion.div>
                   )}
                 </AnimatePresence>

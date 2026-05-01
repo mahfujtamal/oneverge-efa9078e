@@ -63,6 +63,18 @@ const Landing = () => {
 
   const { addonPlansByService } = useAddonPlans();
 
+  // Pre-compute addon total so ISPComparison can show a live cost summary per offer.
+  const addonTotal = React.useMemo(() => {
+    return Object.entries(active)
+      .filter(([id, on]) => on && id !== "broadband")
+      .reduce((sum, [id]) => {
+        const planId = selectedAddonPlans[id];
+        const plans = addonPlansByService[id] || [];
+        const plan = planId ? plans.find((p) => p.id === planId) : plans[0];
+        return sum + (plan?.price ?? 0);
+      }, 0);
+  }, [active, selectedAddonPlans, addonPlansByService]);
+
   const pricingBreakdown = usePricingBreakdown({ step, selectedOffer, selectedISP, active, selectedAddonPlans });
 
   const handlers = useOnboardingHandlers(
@@ -139,6 +151,7 @@ const Landing = () => {
               mobileView={mobileView}
               location={location}
               areaId={areaId}
+              addonTotal={addonTotal}
               onLocationConfirm={handlers.handleLocationConfirm}
               onBack={handleBack}
               onSelectISP={(isp, offer) => {

@@ -7,6 +7,7 @@ interface StepInfraHubProps {
   mobileView: "location" | "isp";
   location: string;
   areaId: string | null;
+  addonTotal: number;
   onLocationConfirm: (data: { displayName: string; areaId: string }) => void;
   onBack: () => void;
   onSelectISP: (isp: any, offer: any) => void;
@@ -16,6 +17,7 @@ const StepInfraHub = ({
   mobileView,
   location,
   areaId,
+  addonTotal,
   onLocationConfirm,
   onBack,
   onSelectISP,
@@ -42,6 +44,7 @@ const StepInfraHub = ({
       >
         <ISPComparison
           location={location}
+          addonTotal={addonTotal}
           onSelect={(isp, offer) => onSelectISP(isp, offer)}
         />
       </div>
