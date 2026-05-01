@@ -117,7 +117,6 @@ const Index = () => {
         if (parsed.selectedISP) setSelectedISP(parsed.selectedISP);
         if (parsed.selectedOffer) setSelectedOffer(parsed.selectedOffer);
         if (parsed.transactionId) setTransactionId(parsed.transactionId);
-        if (parsed.areaId) setAreaId(parsed.areaId);
         if (parsed.location) setMobileView("isp");
       } catch (e) {
         console.error("Recovery failed", e);
@@ -134,10 +133,10 @@ const Index = () => {
     if (!routerState?.forceReset && hasActiveSession) {
       localStorage.setItem(
         "oneverge_onboarding_state",
-        JSON.stringify({ step, location, areaId, userData, active, selectedISP, selectedOffer, transactionId }),
+        JSON.stringify({ step, location, userData, active, selectedISP, selectedOffer, transactionId }),
       );
     }
-  }, [step, location, areaId, userData, active, selectedISP, selectedOffer, transactionId, routerState]);
+  }, [step, location, userData, active, selectedISP, selectedOffer, transactionId, routerState]);
 
   // --- PRICING BREAKDOWN FETCH (Step 7 summary) ---
   // Pulls per-component split (base / VAT / tax / surcharge) for:
@@ -227,17 +226,39 @@ const Index = () => {
     })();
   }, [step, checkoutBroadbandPlanId, selectedOffer?.id, selectedISP?.id, active]);
 
-  // Fetch all active broadband plans for this ISP+area when entering step 7,
-  // so the order summary can offer a plan picker if multiple plans are available.
+  // Fetch all active broadband plans for this ISP+area when entering step 7.
+  // Uses state when available (fresh onboarding), falls back to a DB lookup
+  // via customer_connections when state was lost (e.g. re-login).
   useEffect(() => {
-    // Fall back to userData fields when the dedicated state vars weren't restored
-    // (e.g. re-login from a snapshot saved before areaId was persisted).
-    const ispId = selectedISP?.id || userData?.isp_id;
-    const effectiveAreaId = areaId || userData?.area_id;
-    if (step !== 7 || !ispId || !effectiveAreaId) return;
+    if (step !== 7) return;
 
     (async () => {
       try {
+        let ispId = selectedISP?.id || userData?.isp_id;
+        let effectiveAreaId = areaId || userData?.area_id;
+        let dbBroadbandPlanId: string | null = null;
+
+        if (!ispId || !effectiveAreaId) {
+          const connId = userData?.connection_id;
+          const custId = userData?.id;
+          if (!connId && !custId) return;
+
+          const { data: conn } = await (supabase as any)
+            .from("customer_connections")
+            .select("isp_id, area_id, broadband_plan_id")
+            .eq(connId ? "id" : "customer_id", connId || custId)
+            .order("is_primary", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (!conn) return;
+          ispId = ispId || conn.isp_id;
+          effectiveAreaId = effectiveAreaId || conn.area_id;
+          dbBroadbandPlanId = conn.broadband_plan_id || null;
+        }
+
+        if (!ispId || !effectiveAreaId) return;
+
         const { data, error } = await (supabase as any)
           .from("isp_area_plans")
           .select("broadband_plans!inner(id, name, speed, price, base_price, is_active)")
@@ -258,9 +279,11 @@ const Index = () => {
 
         setBroadbandPlans(plans);
 
-        // Pre-select the plan that matches the offer chosen at step 3
-        if (!checkoutBroadbandPlanId && selectedOffer?.id) {
-          const match = plans.find((p: any) => p.id === selectedOffer.id);
+        // Pre-select the plan: prefer what the customer chose at step 3,
+        // fall back to their current plan from the DB.
+        if (!checkoutBroadbandPlanId) {
+          const preferredId = selectedOffer?.id || dbBroadbandPlanId;
+          const match = plans.find((p: any) => p.id === preferredId);
           if (match) {
             setCheckoutBroadbandPlanId(match.id);
             setCheckoutBasePrice(match.price);
@@ -272,7 +295,7 @@ const Index = () => {
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, selectedISP?.id, userData?.isp_id, areaId, userData?.area_id]);
+  }, [step, selectedISP?.id, userData?.isp_id, areaId, userData?.area_id, userData?.connection_id, userData?.id]);
 
   // --- HANDLERS ---
   const handleLocationConfirm = (locData: { displayName: string; areaId: string }) => {
@@ -332,7 +355,7 @@ const Index = () => {
       }
 
       // Hydrate state with the created customer record (no password fields returned)
-      setUserData({ ...data.customer, password: undefined });
+      setUserData({ ...data.customer, connection_id: data.connection_id ?? null, password: undefined });
 
       // Proceed to Feasibility Check
       setStep(5);

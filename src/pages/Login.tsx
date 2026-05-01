@@ -128,7 +128,6 @@ const Login = () => {
           "oneverge_onboarding_state",
           JSON.stringify({
             ...existingState,
-            areaId: existingState.areaId || user.area_id || null,
             userData: enrichedSession,
             selectedISP: restoredISP,
             selectedOffer: restoredOffer,
