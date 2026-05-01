@@ -75,47 +75,72 @@ export function useScheduleConfig(
     }
   }, [nextCycleAddons, addonPlansByService]);
 
-  // Fetch ALL active broadband plans available at this customer's ISP + area.
+  // Fetch ALL active broadband plans for this customer's ISP.
+  // Queries broadband_plans directly by isp_id — no isp_area_plans join needed.
+  // Falls back to fetching the customer's specific plan by broadband_plan_id when
+  // the ISP-level query returns empty (e.g. isp_id not yet backfilled on older rows).
   useEffect(() => {
     const ispId = sessionData?.isp_id || sessionData?.selectedISP?.id;
-    const areaId = sessionData?.area_id;
     const speed = sessionData?.speed;
-    if (!ispId || !areaId) return;
+    const broadbandPlanId = sessionData?.broadband_plan_id;
+    if (!ispId && !broadbandPlanId) return;
 
     (async () => {
       try {
-        const { data, error } = await (supabase as any)
-          .from("isp_area_plans")
-          .select("broadband_plans!inner(id, name, speed, price, base_price, is_active)")
-          .eq("isp_id", ispId)
-          .eq("area_id", areaId);
+        let plans: BroadbandPlan[] = [];
 
-        if (error) throw error;
+        if (ispId) {
+          const { data, error } = await (supabase as any)
+            .from("broadband_plans")
+            .select("id, name, speed, price, base_price, is_active")
+            .eq("isp_id", ispId)
+            .eq("is_active", true);
 
-        const plans: BroadbandPlan[] = (data || [])
-          .map((r: any) => r.broadband_plans)
-          .filter((p: any) => p?.is_active !== false)
-          .map((p: any) => ({
+          if (error) throw error;
+
+          plans = (data || []).map((p: any) => ({
             id: p.id,
             name: p.name || p.speed,
             speed: p.speed,
             price: Number(p.price ?? p.base_price ?? 0),
           }));
+        }
+
+        // If ISP-level query returned nothing but the customer has a plan assigned,
+        // fetch that plan by ID so the schedule config always has at least one entry.
+        if (plans.length === 0 && broadbandPlanId) {
+          const { data: singlePlan } = await (supabase as any)
+            .from("broadband_plans")
+            .select("id, name, speed, price, base_price, is_active")
+            .eq("id", broadbandPlanId)
+            .maybeSingle();
+          if (singlePlan && singlePlan.is_active !== false) {
+            plans = [{
+              id: singlePlan.id,
+              name: singlePlan.name || singlePlan.speed,
+              speed: singlePlan.speed,
+              price: Number(singlePlan.price ?? singlePlan.base_price ?? 0),
+            }];
+          }
+        }
 
         setAvailablePlans(plans);
 
-        if (!sessionData?.scheduled_broadband_plan_id && speed) {
-          const current = plans.find(
-            (p) => String(p.speed).toLowerCase() === String(speed).toLowerCase(),
-          );
-          if (current && !scheduledPlanId) setScheduledPlanId(current.id);
+        if (!scheduledPlanId) {
+          // Prefer the already-scheduled plan, then match by speed, then first in list.
+          const preferred =
+            plans.find((p) => p.id === sessionData?.scheduled_broadband_plan_id) ||
+            (speed ? plans.find((p) => String(p.speed).toLowerCase() === String(speed).toLowerCase()) : null) ||
+            plans[0] ||
+            null;
+          if (preferred) setScheduledPlanId(preferred.id);
         }
       } catch (e) {
         console.error("Broadband plans fetch failed:", e);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionData?.isp_id, sessionData?.selectedISP?.id, sessionData?.area_id]);
+  }, [sessionData?.isp_id, sessionData?.selectedISP?.id, sessionData?.broadband_plan_id]);
 
   const scheduledPlan = useMemo(
     () => availablePlans.find((p) => p.id === scheduledPlanId) ?? null,
@@ -124,8 +149,15 @@ export function useScheduleConfig(
 
   const broadbandPrice = useMemo(() => {
     if (scheduledPlan) return scheduledPlan.price;
-    return sessionData?.selectedOffer?.price || sessionData?.basePrice || 800;
-  }, [scheduledPlan, sessionData]);
+    // Fall back through available plan list (match by speed), then session speed-derived price.
+    if (availablePlans.length > 0) {
+      const bySpeed = sessionData?.speed
+        ? availablePlans.find((p) => String(p.speed).toLowerCase() === String(sessionData.speed).toLowerCase())
+        : null;
+      return bySpeed?.price ?? availablePlans[0]?.price ?? 800;
+    }
+    return 800;
+  }, [scheduledPlan, availablePlans, sessionData?.speed]);
 
   const nextCycleTotal = useMemo(
     () =>

@@ -290,12 +290,28 @@ const Index = () => {
 
         if (error) throw error;
 
-        const plans = (data || []).map((p: any) => ({
+        let plans = (data || []).map((p: any) => ({
           id: p.id,
           name: p.name || p.speed,
           speed: p.speed,
           price: Number(p.price ?? p.base_price ?? 0),
         }));
+
+        // If the ISP-level query returned nothing (broadband_plans.isp_id not yet backfilled),
+        // fetch the customer's assigned plan by ID so the checkout always has a value.
+        if (plans.length === 0) {
+          const fallbackId = selectedOffer?.id || dbBroadbandPlanId || userData?.broadband_plan_id;
+          if (fallbackId) {
+            const { data: fp } = await (supabase as any)
+              .from("broadband_plans")
+              .select("id, name, speed, price, base_price, is_active")
+              .eq("id", fallbackId)
+              .maybeSingle();
+            if (fp) {
+              plans = [{ id: fp.id, name: fp.name || fp.speed, speed: fp.speed, price: Number(fp.price ?? fp.base_price ?? 0) }];
+            }
+          }
+        }
 
         setBroadbandPlans(plans);
 
