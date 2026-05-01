@@ -26,15 +26,16 @@ interface UsePricingBreakdownParams {
   selectedOffer: any;
   selectedISP: any;
   active: Record<string, boolean>;
+  selectedAddonPlans: Record<string, string>;
 }
 
-export function usePricingBreakdown({ step, selectedOffer, selectedISP, active }: UsePricingBreakdownParams): PricingBreakdown {
+export function usePricingBreakdown({ step, selectedOffer, selectedISP, active, selectedAddonPlans }: UsePricingBreakdownParams): PricingBreakdown {
   const [pricingBreakdown, setPricingBreakdown] = useState<PricingBreakdown>(EMPTY_BREAKDOWN);
 
   useEffect(() => {
     if (step !== 7) return;
 
-    const activeAddonIds = Object.keys(active).filter((id) => active[id] && id !== "broadband");
+    const activeServiceIds = Object.keys(active).filter((id) => active[id] && id !== "broadband");
 
     (async () => {
       try {
@@ -61,24 +62,75 @@ export function usePricingBreakdown({ step, selectedOffer, selectedISP, active }
           }
         }
 
-        // 2) Add-on splits
-        if (activeAddonIds.length > 0) {
-          const { data: addons } = await (supabase as any)
-            .from("addons")
-            .select("id, name, base_price, vat, tax, surplus_charge, price")
-            .in("id", activeAddonIds);
-          (addons || []).forEach((a: any) => {
-            const base = Number(a.base_price) || 0;
-            const vat = Number(a.vat) || 0;
-            const tax = Number(a.tax) || 0;
-            const surcharge = Number(a.surplus_charge) || 0;
-            items.push({
-              id: a.id,
-              label: a.name,
-              base, vat, tax, surcharge,
-              total: Number(a.price) || base + vat + tax + surcharge,
+        // 2) Add-on splits — use the customer's selected addon_plan for accurate pricing;
+        //    fall back to the flat addons row if no plan was chosen.
+        if (activeServiceIds.length > 0) {
+          const selectedPlanIds = activeServiceIds
+            .map((id) => selectedAddonPlans[id])
+            .filter(Boolean);
+
+          if (selectedPlanIds.length > 0) {
+            const { data: plans } = await (supabase as any)
+              .from("addon_plans")
+              .select("id, service_id, name, base_price, vat, tax, surplus_charge, price")
+              .in("id", selectedPlanIds);
+            const planByService: Record<string, any> = {};
+            (plans || []).forEach((p: any) => { planByService[p.service_id] = p; });
+
+            const unresolved: string[] = [];
+            activeServiceIds.forEach((serviceId) => {
+              const p = planByService[serviceId];
+              if (p) {
+                items.push({
+                  id: serviceId,
+                  label: p.name,
+                  base: Number(p.base_price) || 0,
+                  vat: Number(p.vat) || 0,
+                  tax: Number(p.tax) || 0,
+                  surcharge: Number(p.surplus_charge) || 0,
+                  total: Number(p.price) || 0,
+                });
+              } else {
+                unresolved.push(serviceId);
+              }
             });
-          });
+
+            // Fall back to flat addons table for any service without a plan selection
+            if (unresolved.length > 0) {
+              const { data: addons } = await (supabase as any)
+                .from("addons")
+                .select("id, name, base_price, vat, tax, surplus_charge, price")
+                .in("id", unresolved);
+              (addons || []).forEach((a: any) => {
+                items.push({
+                  id: a.id,
+                  label: a.name,
+                  base: Number(a.base_price) || 0,
+                  vat: Number(a.vat) || 0,
+                  tax: Number(a.tax) || 0,
+                  surcharge: Number(a.surplus_charge) || 0,
+                  total: Number(a.price) || 0,
+                });
+              });
+            }
+          } else {
+            // No plan selections at all — fall back entirely to flat addons table
+            const { data: addons } = await (supabase as any)
+              .from("addons")
+              .select("id, name, base_price, vat, tax, surplus_charge, price")
+              .in("id", activeServiceIds);
+            (addons || []).forEach((a: any) => {
+              items.push({
+                id: a.id,
+                label: a.name,
+                base: Number(a.base_price) || 0,
+                vat: Number(a.vat) || 0,
+                tax: Number(a.tax) || 0,
+                surcharge: Number(a.surplus_charge) || 0,
+                total: Number(a.price) || 0,
+              });
+            });
+          }
         }
 
         // 3) Installation fee split (ISP-specific or global default)

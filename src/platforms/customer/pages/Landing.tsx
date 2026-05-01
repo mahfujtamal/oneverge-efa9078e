@@ -63,7 +63,7 @@ const Landing = () => {
 
   const { addonPlansByService } = useAddonPlans();
 
-  const pricingBreakdown = usePricingBreakdown({ step, selectedOffer, selectedISP, active });
+  const pricingBreakdown = usePricingBreakdown({ step, selectedOffer, selectedISP, active, selectedAddonPlans });
 
   const handlers = useOnboardingHandlers(
     { ...state, addonPlansByService, isAddConnection },
