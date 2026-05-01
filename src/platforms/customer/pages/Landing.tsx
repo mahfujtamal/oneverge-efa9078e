@@ -82,6 +82,23 @@ const Landing = () => {
 
   const { addonPlansByService } = useAddonPlans();
 
+  // At step 7, auto-select the first available plan for each active service that has no
+  // plan selected yet (covers login-resume at "feasibility done" where step 2 was skipped).
+  React.useEffect(() => {
+    if (step !== 7 || Object.keys(addonPlansByService).length === 0) return;
+    const updates: Record<string, string> = {};
+    Object.entries(active).forEach(([id, isActive]) => {
+      if (isActive && id !== "broadband" && !selectedAddonPlans[id]) {
+        const first = addonPlansByService[id]?.[0];
+        if (first) updates[id] = first.id;
+      }
+    });
+    if (Object.keys(updates).length > 0) {
+      setSelectedAddonPlans((prev: Record<string, string>) => ({ ...prev, ...updates }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, addonPlansByService]);
+
   // Fetch broadband plans for the selected ISP/area so the checkout can offer plan switching.
   const [ispBroadbandPlans, setIspBroadbandPlans] = React.useState<BroadbandPlan[]>([]);
   React.useEffect(() => {

@@ -29,6 +29,9 @@ interface FinalisePayload {
   nextRenewalDate: string;
   // Per-addon rates so the function does not need to import constants.
   addonRates: Record<string, number>;
+  // Plan selections the customer made at checkout — written to active/scheduled columns on activation.
+  scheduledAddonPlans?: Record<string, string> | null;
+  scheduledBroadbandPlanId?: string | null;
 }
 
 const billingPeriodFor = (d: Date) =>
@@ -136,9 +139,21 @@ Deno.serve(async (req) => {
         updates.created_at = new Date().toISOString();
       }
 
+      // For activation: write the plan selections the customer made at the payment step.
+      // This overrides whatever register-customer seeded, capturing any last-minute changes.
+      if (body.context === "activation") {
+        if (body.scheduledAddonPlans && Object.keys(body.scheduledAddonPlans).length > 0) {
+          updates.active_addon_plans = body.scheduledAddonPlans;
+          updates.scheduled_addon_plans = body.scheduledAddonPlans;
+        }
+        if (body.scheduledBroadbandPlanId) {
+          updates.broadband_plan_id = body.scheduledBroadbandPlanId;
+          updates.scheduled_broadband_plan_id = body.scheduledBroadbandPlanId;
+        }
+      }
+
       // For renewals: promote scheduled addon plan selections and broadband plan
       // to active so the customer's next-cycle configuration actually takes effect.
-      // Activation skips this — register-customer already sets both columns identically.
       if (body.context === "renewal") {
         updates.active_addon_plans = record.scheduled_addon_plans ?? record.active_addon_plans ?? {};
         updates.scheduled_addon_plans = record.scheduled_addon_plans ?? record.active_addon_plans ?? {};

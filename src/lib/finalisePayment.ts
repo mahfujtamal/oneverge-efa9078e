@@ -35,6 +35,8 @@ export interface FinaliseInput {
   scheduledServices: string[]; // final service list customer chose at checkout
   isRenewalDue: boolean; // true if renewal is due OR account is expired
   nextRenewalDate: Date; // for billing_period
+  scheduledAddonPlans?: Record<string, string>; // addon_id → plan_id selections at checkout
+  scheduledBroadbandPlanId?: string | null; // broadband plan the customer chose at checkout
 }
 
 export interface FinaliseResult {
@@ -64,6 +66,8 @@ export async function finalisePayment(input: FinaliseInput): Promise<FinaliseRes
     scheduledServices,
     isRenewalDue,
     nextRenewalDate,
+    scheduledAddonPlans,
+    scheduledBroadbandPlanId,
   } = input;
 
   // 1. Delegate the wallet/cycle/billing-history mutations to the
@@ -84,6 +88,8 @@ export async function finalisePayment(input: FinaliseInput): Promise<FinaliseRes
         isRenewalDue,
         nextRenewalDate: nextRenewalDate.toISOString(),
         addonRates: ONEVERGE_SUITE_RATES,
+        scheduledAddonPlans: scheduledAddonPlans ?? null,
+        scheduledBroadbandPlanId: scheduledBroadbandPlanId ?? null,
       },
     },
   );

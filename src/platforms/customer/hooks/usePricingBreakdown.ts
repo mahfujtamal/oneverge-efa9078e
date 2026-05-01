@@ -115,7 +115,8 @@ export function usePricingBreakdown({ step, selectedOffer, selectedISP, active, 
         console.error("Failed to load pricing breakdown:", err);
       }
     })();
-  }, [step, selectedOffer?.id, selectedISP?.id, active]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, selectedOffer?.id, selectedISP?.id, JSON.stringify(active), JSON.stringify(selectedAddonPlans)]);
 
   return pricingBreakdown;
 }

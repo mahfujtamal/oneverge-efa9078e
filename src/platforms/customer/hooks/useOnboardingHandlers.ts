@@ -209,6 +209,8 @@ export function useOnboardingHandlers(state: OnboardingState, navigate: (path: s
           scheduledServices,
           isRenewalDue: true,
           nextRenewalDate: new Date(),
+          scheduledAddonPlans: selectedAddonPlans,
+          scheduledBroadbandPlanId: selectedOffer?.id ?? null,
         });
 
         const connId = userData.connection_id;
