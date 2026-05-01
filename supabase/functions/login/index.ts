@@ -35,11 +35,11 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Lookup customer by email / user_id / phone (with location join)
+    // Lookup customer by email / user_id / phone (identity fields only)
     const id = identifier.trim();
     const { data: customer, error: lookupErr } = await supabase
       .from("customers")
-      .select("*")
+      .select("id, user_id, auth_user_id, display_name, phone_number, email, nid, dob, created_at, updated_at")
       .or(`email.eq.${id},user_id.eq.${id},phone_number.eq.${id}`)
       .maybeSingle();
 
@@ -87,9 +87,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Resolve ISP — prefer the customer's stored isp_id; fall back to area coverage
+    // Fetch the primary connection — drives account_status, balance, services, etc.
+    const { data: primaryConn } = await supabase
+      .from("customer_connections")
+      .select("*")
+      .eq("customer_id", customer.id)
+      .order("is_primary", { ascending: false })
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    // Resolve ISP from primary connection
     let resolvedIspName = "OneVerge Global";
-    let resolvedIspId: string | null = (customer as any).isp_id || null;
+    let resolvedIspId: string | null = (primaryConn as any)?.isp_id || null;
 
     if (resolvedIspId) {
       const { data: ispRow } = await supabase
@@ -98,11 +108,11 @@ Deno.serve(async (req) => {
         .eq("id", resolvedIspId)
         .maybeSingle();
       if (ispRow?.name) resolvedIspName = ispRow.name;
-    } else if (customer.area_id) {
+    } else if ((primaryConn as any)?.area_id) {
       const { data: ispData } = await supabase
         .from("isp_coverage")
         .select("isp_id, isps(name)")
-        .eq("area_id", customer.area_id)
+        .eq("area_id", (primaryConn as any).area_id)
         .limit(1)
         .maybeSingle();
 
@@ -110,25 +120,59 @@ Deno.serve(async (req) => {
         // @ts-ignore
         resolvedIspName = ispData.isps?.name || "OneVerge Global";
         resolvedIspId = ispData.isp_id || null;
-
-        // Backfill the customer record so next login is deterministic
-        if (resolvedIspId) {
-          await supabase
-            .from("customers")
-            .update({ isp_id: resolvedIspId })
-            .eq("id", customer.id);
-          (customer as any).isp_id = resolvedIspId;
-        }
       }
     }
 
-    // Strip sensitive fields from response
-    const { password: _pw, password_hash: _ph, ...safeCustomer } = customer as any;
+    // Resolve location string from primary connection's area
+    let locationStr = (primaryConn as any)?.address || "";
+    if ((primaryConn as any)?.area_id) {
+      const { data: areaRow } = await supabase
+        .from("areas")
+        .select("name, districts(name)")
+        .eq("id", (primaryConn as any).area_id)
+        .maybeSingle();
+      if (areaRow) {
+        // @ts-ignore
+        const districtName = areaRow.districts?.name || "";
+        const areaName = areaRow.name || "";
+        if (districtName && areaName) locationStr = `${districtName} - ${areaName}`;
+        else locationStr = districtName || areaName || locationStr;
+      }
+    }
+
+    // Merge identity + primary connection fields into a single flat user object.
+    // The frontend reads account_status, balance, isp_id, area_id, active_services,
+    // scheduled_services, active_addon_plans, scheduled_addon_plans, broadband_plan_id,
+    // scheduled_broadband_plan_id, speed, address all from this merged object.
+    const mergedUser = {
+      ...customer,
+      // primary connection fields (override identity where names clash)
+      ...(primaryConn ? {
+        connection_id: (primaryConn as any).id,
+        area_id: (primaryConn as any).area_id,
+        address: (primaryConn as any).address,
+        isp_id: (primaryConn as any).isp_id,
+        broadband_plan_id: (primaryConn as any).broadband_plan_id,
+        scheduled_broadband_plan_id: (primaryConn as any).scheduled_broadband_plan_id,
+        speed: (primaryConn as any).speed,
+        account_status: (primaryConn as any).account_status,
+        balance: (primaryConn as any).balance,
+        active_services: (primaryConn as any).active_services,
+        scheduled_services: (primaryConn as any).scheduled_services,
+        active_addon_plans: (primaryConn as any).active_addon_plans,
+        scheduled_addon_plans: (primaryConn as any).scheduled_addon_plans,
+        is_primary: (primaryConn as any).is_primary,
+        connection_label: (primaryConn as any).connection_label,
+      } : {}),
+      location: locationStr,
+      ispName: resolvedIspName,
+      isp_id: resolvedIspId,
+    };
 
     return new Response(
       JSON.stringify({
         ok: true,
-        user: safeCustomer,
+        user: mergedUser,
         ispName: resolvedIspName,
         ispId: resolvedIspId,
       }),
