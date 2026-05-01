@@ -29,6 +29,7 @@ interface PaymentGatewayProps {
     txnId: string,
     paymentMethod?: string,
     installationTxnId?: string,
+    serviceAmount?: number,
   ) => void;
   hideSummary?: boolean;
   /**
@@ -224,7 +225,7 @@ const PaymentGateway = ({
     // NOTE: keep `lockRef` engaged after success so the parent unmount /
     // navigation handles the next render — releasing it here would let a
     // stray tap fire `onPaymentSuccess` twice before transition completes.
-    onPaymentSuccess(serviceTxn, methodLabel, installationTxn);
+    onPaymentSuccess(serviceTxn, methodLabel, installationTxn, serviceAmount);
     setIsProcessing(false);
   };
 

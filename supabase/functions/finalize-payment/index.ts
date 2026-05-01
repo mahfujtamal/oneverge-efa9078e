@@ -32,6 +32,8 @@ interface FinalisePayload {
   // Plan selections the customer made at checkout — written to active/scheduled columns on activation.
   scheduledAddonPlans?: Record<string, string> | null;
   scheduledBroadbandPlanId?: string | null;
+  // Speed string of the broadband plan selected at checkout (e.g. "25 Mbps").
+  speed?: string | null;
 }
 
 const billingPeriodFor = (d: Date) =>
@@ -149,6 +151,7 @@ Deno.serve(async (req) => {
         if (body.scheduledBroadbandPlanId) {
           updates.broadband_plan_id = body.scheduledBroadbandPlanId;
           updates.scheduled_broadband_plan_id = body.scheduledBroadbandPlanId;
+          if (body.speed) updates.speed = body.speed;
         }
       }
 
@@ -160,6 +163,7 @@ Deno.serve(async (req) => {
         if (record.scheduled_broadband_plan_id) {
           updates.broadband_plan_id = record.scheduled_broadband_plan_id;
           updates.scheduled_broadband_plan_id = record.scheduled_broadband_plan_id;
+          if (body.speed) updates.speed = body.speed;
         }
       }
     }

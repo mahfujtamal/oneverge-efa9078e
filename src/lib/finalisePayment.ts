@@ -37,6 +37,7 @@ export interface FinaliseInput {
   nextRenewalDate: Date; // for billing_period
   scheduledAddonPlans?: Record<string, string>; // addon_id → plan_id selections at checkout
   scheduledBroadbandPlanId?: string | null; // broadband plan the customer chose at checkout
+  speed?: string | null; // speed of the broadband plan chosen at checkout (e.g. "25 Mbps")
 }
 
 export interface FinaliseResult {
@@ -68,6 +69,7 @@ export async function finalisePayment(input: FinaliseInput): Promise<FinaliseRes
     nextRenewalDate,
     scheduledAddonPlans,
     scheduledBroadbandPlanId,
+    speed,
   } = input;
 
   // 1. Delegate the wallet/cycle/billing-history mutations to the
@@ -90,6 +92,7 @@ export async function finalisePayment(input: FinaliseInput): Promise<FinaliseRes
         addonRates: ONEVERGE_SUITE_RATES,
         scheduledAddonPlans: scheduledAddonPlans ?? null,
         scheduledBroadbandPlanId: scheduledBroadbandPlanId ?? null,
+        speed: speed ?? null,
       },
     },
   );

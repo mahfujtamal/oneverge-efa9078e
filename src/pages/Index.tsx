@@ -47,6 +47,12 @@ const Index = () => {
 
   const [active, setActive] = useState<Record<string, boolean>>({ broadband: true });
   const [transactionId, setTransactionId] = useState("");
+
+  // Checkout-time broadband plan override (user may switch plan in order summary)
+  const [checkoutBroadbandPlanId, setCheckoutBroadbandPlanId] = useState<string | null>(null);
+  const [checkoutBasePrice, setCheckoutBasePrice] = useState<number | null>(null);
+  const [checkoutSpeed, setCheckoutSpeed] = useState<string | null>(null);
+  const [broadbandPlans, setBroadbandPlans] = useState<Array<{ id: string; name: string; speed: string; price: number }>>([]);
   // Per-component pricing split (Base / VAT / Tax / Surcharge) for Step 7 summary
   const [pricingBreakdown, setPricingBreakdown] = useState<{
     items: Array<{
@@ -146,12 +152,13 @@ const Index = () => {
       try {
         const items: typeof pricingBreakdown.items = [];
 
-        // 1) Broadband plan split
-        if (selectedOffer?.id) {
+        // 1) Broadband plan split — use checkout override if customer changed plan in order summary
+        const broadbandPlanId = checkoutBroadbandPlanId || selectedOffer?.id;
+        if (broadbandPlanId) {
           const { data: plan } = await (supabase as any)
             .from("broadband_plans")
             .select("id, name, base_price, vat, tax, surplus_charge, price")
-            .eq("id", selectedOffer.id)
+            .eq("id", broadbandPlanId)
             .maybeSingle();
           if (plan) {
             const base = Number(plan.base_price) || 0;
@@ -215,7 +222,50 @@ const Index = () => {
         console.error("Failed to load pricing breakdown:", err);
       }
     })();
-  }, [step, selectedOffer?.id, selectedISP?.id, active]);
+  }, [step, checkoutBroadbandPlanId, selectedOffer?.id, selectedISP?.id, active]);
+
+  // Fetch all active broadband plans for this ISP+area when entering step 7,
+  // so the order summary can offer a plan picker if multiple plans are available.
+  useEffect(() => {
+    if (step !== 7 || !selectedISP?.id || !areaId) return;
+
+    (async () => {
+      try {
+        const { data, error } = await (supabase as any)
+          .from("isp_area_plans")
+          .select("broadband_plans!inner(id, name, speed, price, base_price, is_active)")
+          .eq("isp_id", selectedISP.id)
+          .eq("area_id", areaId);
+
+        if (error) throw error;
+
+        const plans = (data || [])
+          .map((r: any) => r.broadband_plans)
+          .filter((p: any) => p?.is_active !== false)
+          .map((p: any) => ({
+            id: p.id,
+            name: p.name || p.speed,
+            speed: p.speed,
+            price: Number(p.price ?? p.base_price ?? 0),
+          }));
+
+        setBroadbandPlans(plans);
+
+        // Pre-select the plan that matches the offer chosen at step 3
+        if (!checkoutBroadbandPlanId && selectedOffer?.id) {
+          const match = plans.find((p: any) => p.id === selectedOffer.id);
+          if (match) {
+            setCheckoutBroadbandPlanId(match.id);
+            setCheckoutBasePrice(match.price);
+            setCheckoutSpeed(match.speed);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load broadband plans:", err);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, selectedISP?.id, areaId]);
 
   // --- HANDLERS ---
   const handleLocationConfirm = (locData: { displayName: string; areaId: string }) => {
@@ -312,8 +362,15 @@ const Index = () => {
     setStep(7);
   };
 
+  // Updates checkout state when the user picks a different broadband plan in the order summary.
+  const handleSelectBroadbandPlan = (planId: string, price: number, speed: string) => {
+    setCheckoutBroadbandPlanId(planId);
+    setCheckoutBasePrice(price);
+    setCheckoutSpeed(speed);
+  };
+
   // --- PAYMENT GATEWAY (Step 7) ---
-  const handlePaymentComplete = async (txn: string, paymentMethod?: string, _installationTxn?: string) => {
+  const handlePaymentComplete = async (txn: string, paymentMethod?: string, _installationTxn?: string, serviceAmountFromGateway?: number) => {
     // NOTE: installation txn (`_installationTxn`) is intentionally NOT passed to
     // finalisePayment — it must NEVER appear in billing_history or wallet flow.
     // It already exists as its own row in the `payments` table (written by
@@ -321,13 +378,21 @@ const Index = () => {
     if (userData?.id) {
       try {
         const scheduledServices = Object.keys(active).filter((id) => active[id]);
-        const basePrice = selectedOffer?.price || 800;
+        // Use the plan the customer selected at checkout, falling back to the original offer.
+        const basePrice = checkoutBasePrice ?? selectedOffer?.price ?? 800;
+        const effectiveSpeed = checkoutSpeed ?? selectedOffer?.speed ?? null;
+        const effectivePlanId = checkoutBroadbandPlanId ?? selectedOffer?.id ?? null;
+
         const { ONEVERGE_SUITE_RATES } = await import("@/lib/constants");
+        // Prefer the actual service amount reported by PaymentGateway (which uses
+        // the real DB-priced totals). Fall back to a constants-based estimate only
+        // when the gateway didn't supply the amount (legacy callers).
         const paidAmount =
+          serviceAmountFromGateway ??
           basePrice +
-          scheduledServices
-            .filter((s) => s !== "broadband")
-            .reduce((sum, id) => sum + (ONEVERGE_SUITE_RATES[id] || 0), 0);
+            scheduledServices
+              .filter((s) => s !== "broadband")
+              .reduce((sum, id) => sum + (ONEVERGE_SUITE_RATES[id] || 0), 0);
 
         const { finalisePayment } = await import("@/lib/finalisePayment");
         await finalisePayment({
@@ -340,6 +405,8 @@ const Index = () => {
           scheduledServices,
           isRenewalDue: true, // activation always consumes a cycle
           nextRenewalDate: new Date(),
+          scheduledBroadbandPlanId: effectivePlanId,
+          speed: effectiveSpeed,
         });
 
         // Refresh local userData with the post-activation state from the connection row
@@ -733,12 +800,15 @@ const Index = () => {
             <PaymentGateway
               activeAddons={active}
               setActiveAddons={setActive}
-              basePrice={selectedOffer?.price || 800}
+              basePrice={checkoutBasePrice ?? selectedOffer?.price ?? 800}
               selectedOffer={selectedOffer}
               userId={userData.id}
               paymentType="activation"
               installationFee={pricingBreakdown.installation.total}
               pricingBreakdown={pricingBreakdown}
+              broadbandPlans={broadbandPlans}
+              selectedBroadbandPlanId={checkoutBroadbandPlanId ?? selectedOffer?.id ?? null}
+              onSelectBroadbandPlan={handleSelectBroadbandPlan}
               onBack={() => setStep(4)}
               onPaymentSuccess={handlePaymentComplete}
             />

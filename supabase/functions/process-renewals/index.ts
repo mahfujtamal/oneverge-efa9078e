@@ -141,7 +141,7 @@ Deno.serve(async (req) => {
     const { data: connections, error } = await supabase
       .from("customer_connections")
       .select(
-        "id, customer_id, balance, scheduled_services, active_services, scheduled_addon_plans, active_addon_plans, broadband_plan_id, scheduled_broadband_plan_id, created_at, account_status, isp_id, area_id, speed",
+        "id, customer_id, balance, scheduled_services, active_services, scheduled_addon_plans, active_addon_plans, broadband_plan_id, scheduled_broadband_plan_id, created_at, account_status, isp_id, area_id, speed, scheduled_plan:broadband_plans!scheduled_broadband_plan_id(speed)",
       )
       .neq("account_status", "account created");
 
@@ -217,6 +217,10 @@ Deno.serve(async (req) => {
               scheduled_addon_plans: (c as any).scheduled_addon_plans ?? (c as any).active_addon_plans ?? {},
               broadband_plan_id: (c as any).scheduled_broadband_plan_id || c.broadband_plan_id,
               scheduled_broadband_plan_id: (c as any).scheduled_broadband_plan_id || c.broadband_plan_id,
+              // Sync speed when the broadband plan changes on renewal.
+              ...((c as any).scheduled_broadband_plan_id && (c as any).scheduled_plan?.speed
+                ? { speed: (c as any).scheduled_plan.speed }
+                : {}),
               account_status: "active",
             })
             .eq("id", c.id);
