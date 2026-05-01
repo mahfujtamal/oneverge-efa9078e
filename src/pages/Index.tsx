@@ -228,15 +228,19 @@ const Index = () => {
   // Fetch all active broadband plans for this ISP+area when entering step 7,
   // so the order summary can offer a plan picker if multiple plans are available.
   useEffect(() => {
-    if (step !== 7 || !selectedISP?.id || !areaId) return;
+    // Fall back to userData fields when the dedicated state vars weren't restored
+    // (e.g. re-login from a snapshot saved before areaId was persisted).
+    const ispId = selectedISP?.id || userData?.isp_id;
+    const effectiveAreaId = areaId || userData?.area_id;
+    if (step !== 7 || !ispId || !effectiveAreaId) return;
 
     (async () => {
       try {
         const { data, error } = await (supabase as any)
           .from("isp_area_plans")
           .select("broadband_plans!inner(id, name, speed, price, base_price, is_active)")
-          .eq("isp_id", selectedISP.id)
-          .eq("area_id", areaId);
+          .eq("isp_id", ispId)
+          .eq("area_id", effectiveAreaId);
 
         if (error) throw error;
 
@@ -266,7 +270,7 @@ const Index = () => {
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, selectedISP?.id, areaId]);
+  }, [step, selectedISP?.id, userData?.isp_id, areaId, userData?.area_id]);
 
   // --- HANDLERS ---
   const handleLocationConfirm = (locData: { displayName: string; areaId: string }) => {
