@@ -59,15 +59,14 @@ const Login = () => {
       const resolvedIspName = data.ispName || "OneVerge Global";
       const resolvedIspId = data.ispId || null;
 
-      // Build the enriched session payload expected by Dashboard / onboarding
+      // Build the enriched session payload expected by Dashboard / onboarding.
+      // user.location is already a derived string from the login edge function.
       const enrichedSession = {
         ...user,
-        location: `${user.areas?.districts?.name || "Unknown"} - ${user.areas?.name || "Unknown"}`,
         ispName: resolvedIspName,
         isp_id: resolvedIspId,
       };
 
-      const savedStep = localStorage.getItem("oneverge_last_step");
       let existingState: Record<string, any> = {};
       try {
         existingState = JSON.parse(localStorage.getItem("oneverge_onboarding_state") || "{}");
@@ -78,10 +77,9 @@ const Login = () => {
       const restoredISP = resolvedIspId
         ? { id: resolvedIspId, name: resolvedIspName }
         : existingState.selectedISP;
-      const restoredLocation = user.address || existingState.location || "";
+      const restoredLocation = user.location || user.address || existingState.location || "";
 
-      // Reconstruct `active` addon map from the customer's scheduled_services
-      // (falls back to active_services, then to existing snapshot, then to broadband only)
+      // Reconstruct active addon map from scheduled_services (what the customer selected).
       const services: string[] =
         (Array.isArray(user.scheduled_services) && user.scheduled_services.length > 0
           ? user.scheduled_services
@@ -96,22 +94,28 @@ const Login = () => {
             }, { broadband: true })
           : existingState.active || { broadband: true };
 
-      // Reconstruct selectedOffer from snapshot, otherwise synthesise from
-      // the customer's stored speed so PaymentGateway has a valid basePrice.
+      // Restore addon plan selections from the connection's active_addon_plans.
+      const restoredAddonPlans: Record<string, string> =
+        (user.active_addon_plans && typeof user.active_addon_plans === "object"
+          ? user.active_addon_plans
+          : existingState.selectedAddonPlans) || {};
+
+      // Reconstruct selectedOffer with the broadband plan ID so usePricingBreakdown
+      // can fetch the actual price from DB instead of using a hardcoded fallback.
       const restoredOffer =
         existingState.selectedOffer ||
-        (user.speed
-          ? { name: `${user.speed} Plan`, speed: user.speed, price: 800 }
-          : null);
+        (user.broadband_plan_id
+          ? { id: user.broadband_plan_id, name: `${user.speed || ""} Plan`, speed: user.speed, price: 0 }
+          : user.speed
+            ? { name: `${user.speed} Plan`, speed: user.speed, price: 0 }
+            : null);
 
-      let dbFallbackStep = 1;
-      if (user.account_status === "account created") {
-        dbFallbackStep = 5;
-      } else if (user.account_status === "feasibility done") {
-        dbFallbackStep = 7;
-      }
-
+      // Routing: for known statuses, always use the status-driven step so the customer
+      // resumes at the correct point regardless of any stale savedStep in localStorage.
       const shouldOpenDashboard = shouldOpenDashboardForStatus(user.account_status);
+      let targetStep = 1;
+      if (user.account_status === "account created") targetStep = 5;
+      else if (user.account_status === "feasibility done") targetStep = 7;
 
       localStorage.setItem("oneverge_session", JSON.stringify(enrichedSession));
       localStorage.setItem("oneverge_user", JSON.stringify(enrichedSession));
@@ -126,9 +130,10 @@ const Login = () => {
             userData: enrichedSession,
             selectedISP: restoredISP,
             selectedOffer: restoredOffer,
+            selectedAddonPlans: restoredAddonPlans,
             location: restoredLocation,
             active: restoredActive,
-            step: normalizeOnboardingStep(savedStep ?? dbFallbackStep),
+            step: normalizeOnboardingStep(targetStep),
           }),
         );
       }
