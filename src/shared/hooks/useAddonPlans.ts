@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export type AddonPlan = {
   id: string;
-  service_id: string;
+  addon_id: string;
   name: string;
   base_price: number;
   vat: number;
@@ -22,7 +22,7 @@ export function useAddonPlans() {
       try {
         const { data, error } = await (supabase as any)
           .from("addon_plans")
-          .select("id, service_id, name, base_price, vat, tax, surplus_charge, price, effective_from")
+          .select("id, addon_id, name, base_price, vat, tax, surplus_charge, price, effective_from")
           .eq("is_active", true)
           .order("effective_from", { ascending: false });
 
@@ -30,8 +30,8 @@ export function useAddonPlans() {
 
         const grouped: Record<string, AddonPlan[]> = {};
         (data || []).forEach((plan: AddonPlan) => {
-          if (!grouped[plan.service_id]) grouped[plan.service_id] = [];
-          grouped[plan.service_id].push(plan);
+          if (!grouped[plan.addon_id]) grouped[plan.addon_id] = [];
+          grouped[plan.addon_id].push(plan);
         });
 
         setAddonPlansByService(grouped);

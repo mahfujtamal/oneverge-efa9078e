@@ -62,8 +62,7 @@ export function usePricingBreakdown({ step, selectedOffer, selectedISP, active, 
           }
         }
 
-        // 2) Add-on splits — use the customer's selected addon_plan for accurate pricing;
-        //    fall back to the flat addons row if no plan was chosen.
+        // 2) Add-on splits — look up each selected plan from addon_plans by UUID.
         if (activeServiceIds.length > 0) {
           const selectedPlanIds = activeServiceIds
             .map((id) => selectedAddonPlans[id])
@@ -72,14 +71,13 @@ export function usePricingBreakdown({ step, selectedOffer, selectedISP, active, 
           if (selectedPlanIds.length > 0) {
             const { data: plans } = await (supabase as any)
               .from("addon_plans")
-              .select("id, service_id, name, base_price, vat, tax, surplus_charge, price")
+              .select("id, addon_id, name, base_price, vat, tax, surplus_charge, price")
               .in("id", selectedPlanIds);
-            const planByService: Record<string, any> = {};
-            (plans || []).forEach((p: any) => { planByService[p.service_id] = p; });
+            const planByAddon: Record<string, any> = {};
+            (plans || []).forEach((p: any) => { planByAddon[p.addon_id] = p; });
 
-            const unresolved: string[] = [];
             activeServiceIds.forEach((serviceId) => {
-              const p = planByService[serviceId];
+              const p = planByAddon[serviceId];
               if (p) {
                 items.push({
                   id: serviceId,
@@ -90,45 +88,7 @@ export function usePricingBreakdown({ step, selectedOffer, selectedISP, active, 
                   surcharge: Number(p.surplus_charge) || 0,
                   total: Number(p.price) || 0,
                 });
-              } else {
-                unresolved.push(serviceId);
               }
-            });
-
-            // Fall back to flat addons table for any service without a plan selection
-            if (unresolved.length > 0) {
-              const { data: addons } = await (supabase as any)
-                .from("addons")
-                .select("id, name, base_price, vat, tax, surplus_charge, price")
-                .in("id", unresolved);
-              (addons || []).forEach((a: any) => {
-                items.push({
-                  id: a.id,
-                  label: a.name,
-                  base: Number(a.base_price) || 0,
-                  vat: Number(a.vat) || 0,
-                  tax: Number(a.tax) || 0,
-                  surcharge: Number(a.surplus_charge) || 0,
-                  total: Number(a.price) || 0,
-                });
-              });
-            }
-          } else {
-            // No plan selections at all — fall back entirely to flat addons table
-            const { data: addons } = await (supabase as any)
-              .from("addons")
-              .select("id, name, base_price, vat, tax, surplus_charge, price")
-              .in("id", activeServiceIds);
-            (addons || []).forEach((a: any) => {
-              items.push({
-                id: a.id,
-                label: a.name,
-                base: Number(a.base_price) || 0,
-                vat: Number(a.vat) || 0,
-                tax: Number(a.tax) || 0,
-                surcharge: Number(a.surplus_charge) || 0,
-                total: Number(a.price) || 0,
-              });
             });
           }
         }
