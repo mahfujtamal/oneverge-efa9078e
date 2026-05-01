@@ -2,22 +2,35 @@ import { z } from "zod";
 
 // Zod schema for the customer session stored in localStorage / router state.
 // Replaces raw JSON.parse() calls in Dashboard, BillingVault, SupportCenter.
-export const CustomerSessionSchema = z.object({
-  id: z.string().uuid(),
-  name: z.string().min(1),
-  phone: z.string().min(1),
-  email: z.string().email(),
-  account_status: z.string().min(1),
-  balance: z.number(),
-  active_services: z.array(z.string()).default([]),
-  scheduled_services: z.array(z.string()).nullable().default(null),
-  address: z.string().nullable().optional(),
-  nid: z.string().nullable().optional(),
-  dob: z.string().nullable().optional(),
-  isp_id: z.string().nullable().optional(),
-  area_id: z.string().nullable().optional(),
-  created_at: z.string().nullable().optional(),
-});
+// IMPORTANT: This schema must mirror the shape returned by the `login` edge
+// function (see supabase/functions/login/index.ts). Required fields are kept
+// to the minimum a protected route needs to identify a customer; everything
+// else is optional/passthrough so the schema does not reject valid sessions
+// when the server returns extra columns or slightly different field names.
+export const CustomerSessionSchema = z
+  .object({
+    id: z.string().uuid(),
+    account_status: z.string().min(1),
+    // Identity — at least one display field; both server names accepted.
+    display_name: z.string().min(1).optional(),
+    name: z.string().min(1).optional(),
+    // Contact — server returns phone_number; legacy `phone` also accepted.
+    phone_number: z.string().min(1).optional(),
+    phone: z.string().min(1).optional(),
+    email: z.string().email().nullable().optional(),
+    // Wallet — coerce so numeric strings from older payloads still parse.
+    balance: z.coerce.number().default(0),
+    active_services: z.array(z.string()).nullable().default([]),
+    scheduled_services: z.array(z.string()).nullable().default(null),
+    address: z.string().nullable().optional(),
+    // NID arrives as number from the PG numeric column.
+    nid: z.union([z.string(), z.number()]).nullable().optional(),
+    dob: z.string().nullable().optional(),
+    isp_id: z.string().nullable().optional(),
+    area_id: z.string().nullable().optional(),
+    created_at: z.string().nullable().optional(),
+  })
+  .passthrough();
 
 export type CustomerSession = z.infer<typeof CustomerSessionSchema>;
 
