@@ -328,110 +328,45 @@ export type Database = {
       }
       customers: {
         Row: {
-          account_status: string | null
-          active_addon_plans: Json
-          active_services: string[] | null
-          address: string | null
-          area_id: string | null
           auth_user_id: string | null
-          balance: number | null
-          broadband_plan_id: string | null
           created_at: string
           display_name: string | null
           dob: string | null
           email: string | null
           id: string
-          isp_id: string | null
           nid: number | null
           password_hash: string | null
           phone_number: string | null
-          scheduled_addon_plans: Json
-          scheduled_broadband_plan_id: string | null
-          scheduled_services: string[] | null
-          speed: string | null
           updated_at: string
           user_id: string | null
         }
         Insert: {
-          account_status?: string | null
-          active_addon_plans?: Json
-          active_services?: string[] | null
-          address?: string | null
-          area_id?: string | null
           auth_user_id?: string | null
-          balance?: number | null
-          broadband_plan_id?: string | null
           created_at?: string
           display_name?: string | null
           dob?: string | null
           email?: string | null
           id?: string
-          isp_id?: string | null
           nid?: number | null
           password_hash?: string | null
           phone_number?: string | null
-          scheduled_addon_plans?: Json
-          scheduled_broadband_plan_id?: string | null
-          scheduled_services?: string[] | null
-          speed?: string | null
           updated_at?: string
           user_id?: string | null
         }
         Update: {
-          account_status?: string | null
-          active_addon_plans?: Json
-          active_services?: string[] | null
-          address?: string | null
-          area_id?: string | null
           auth_user_id?: string | null
-          balance?: number | null
-          broadband_plan_id?: string | null
           created_at?: string
           display_name?: string | null
           dob?: string | null
           email?: string | null
           id?: string
-          isp_id?: string | null
           nid?: number | null
           password_hash?: string | null
           phone_number?: string | null
-          scheduled_addon_plans?: Json
-          scheduled_broadband_plan_id?: string | null
-          scheduled_services?: string[] | null
-          speed?: string | null
           updated_at?: string
           user_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "customers_area_id_fkey"
-            columns: ["area_id"]
-            isOneToOne: false
-            referencedRelation: "areas"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "customers_broadband_plan_id_fkey"
-            columns: ["broadband_plan_id"]
-            isOneToOne: false
-            referencedRelation: "broadband_plans"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "customers_isp_id_fkey"
-            columns: ["isp_id"]
-            isOneToOne: false
-            referencedRelation: "isps"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "customers_scheduled_broadband_plan_id_fkey"
-            columns: ["scheduled_broadband_plan_id"]
-            isOneToOne: false
-            referencedRelation: "broadband_plans"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       default_installation_fees: {
         Row: {
