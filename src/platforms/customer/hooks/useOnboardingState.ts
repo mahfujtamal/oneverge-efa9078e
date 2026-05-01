@@ -1,5 +1,13 @@
 import { useState, useEffect } from "react";
 
+const EMPTY_USER_DATA = { name: "", phone: "", email: "", address: "", nid: "", dob: "", password: "" };
+const VALID_ONBOARDING_STEPS = new Set([1, 2, 3, 4, 5, 5.5, 7, 8]);
+
+export function normalizeOnboardingStep(value: unknown): number {
+  const next = typeof value === "string" ? Number(value) : Number(value);
+  return VALID_ONBOARDING_STEPS.has(next) ? next : 1;
+}
+
 type UserData = {
   name: string;
   phone: string;
@@ -32,6 +40,10 @@ export function useOnboardingState(routerState: unknown) {
   const [showPassword, setShowPassword] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
 
+  const setSafeStep = (value: number | ((prev: number) => number)) => {
+    setStep((prev) => normalizeOnboardingStep(typeof value === "function" ? value(prev) : value));
+  };
+
   // Derived password policy checks
   const pw = userData.password || "";
   const pwChecks = {
@@ -47,9 +59,9 @@ export function useOnboardingState(routerState: unknown) {
   useEffect(() => {
     const state = routerState as any;
     if (state?.forceReset) {
-      setStep(1);
+      setSafeStep(1);
       setLocation("");
-      setUserData({ name: "", phone: "", email: "", address: "", nid: "", dob: "", password: "" });
+      setUserData(EMPTY_USER_DATA);
       setActive({ broadband: true });
       setSelectedAddonPlans({});
       setTransactionId("");
@@ -65,9 +77,9 @@ export function useOnboardingState(routerState: unknown) {
     if (saved && hasActiveSession && !state?.isMigration) {
       try {
         const parsed = JSON.parse(saved);
-        setStep(parsed.step || 1);
+        setSafeStep(parsed.step);
         setLocation(parsed.location || "");
-        setUserData(parsed.userData || { name: "", phone: "", email: "", address: "", nid: "", dob: "", password: "" });
+        setUserData(parsed.userData || EMPTY_USER_DATA);
         setActive(parsed.active || { broadband: true });
         setSelectedAddonPlans(parsed.selectedAddonPlans || {});
         if (parsed.selectedISP) setSelectedISP(parsed.selectedISP);
@@ -97,7 +109,7 @@ export function useOnboardingState(routerState: unknown) {
   }, [step, location, userData, active, selectedAddonPlans, selectedISP, selectedOffer, transactionId, routerState]);
 
   return {
-    step, setStep,
+    step, setStep: setSafeStep,
     location, setLocation,
     areaId, setAreaId,
     selectedISP, setSelectedISP,
