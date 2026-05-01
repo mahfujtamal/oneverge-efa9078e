@@ -256,9 +256,9 @@ const PaymentGateway = ({
             </div>
 
             <div className="flex-1 space-y-3 lg:overflow-y-auto no-scrollbar pr-1">
-              {/* Broadband plan — show picker when multiple plans available */}
-              <div className={`rounded-2xl bg-white/[0.04] border border-white/5 ${broadbandPlans && broadbandPlans.length > 1 ? "p-3 space-y-2" : "p-4 flex justify-between items-center"}`}>
-                {broadbandPlans && broadbandPlans.length > 1 ? (
+              {/* Broadband plan — show picker when at least one plan is available */}
+              <div className={`rounded-2xl bg-white/[0.04] border border-white/5 ${broadbandPlans && broadbandPlans.length > 0 ? "p-3 space-y-2" : "p-4 flex justify-between items-center"}`}>
+                {broadbandPlans && broadbandPlans.length > 0 ? (
                   <>
                     <p className="text-[9px] font-black uppercase tracking-widest text-gray-500 px-1">Broadband Plan</p>
                     {broadbandPlans.map((plan) => {
