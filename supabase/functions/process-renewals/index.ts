@@ -141,7 +141,7 @@ Deno.serve(async (req) => {
     const { data: connections, error } = await supabase
       .from("customer_connections")
       .select(
-        "id, customer_id, balance, scheduled_services, active_services, created_at, account_status, broadband_plan_id, isp_id, area_id, speed",
+        "id, customer_id, balance, scheduled_services, active_services, scheduled_addon_plans, active_addon_plans, broadband_plan_id, scheduled_broadband_plan_id, created_at, account_status, isp_id, area_id, speed",
       )
       .neq("account_status", "account created");
 
@@ -210,6 +210,13 @@ Deno.serve(async (req) => {
               balance: newBalance,
               active_services: promoted,
               scheduled_services: promoted,
+              // Promote next-cycle addon plan selections and broadband plan to active.
+              // Both scheduled columns are reset to the promoted value so the customer
+              // starts the new cycle with a clean default (same as what just activated).
+              active_addon_plans: (c as any).scheduled_addon_plans ?? (c as any).active_addon_plans ?? {},
+              scheduled_addon_plans: (c as any).scheduled_addon_plans ?? (c as any).active_addon_plans ?? {},
+              broadband_plan_id: (c as any).scheduled_broadband_plan_id || c.broadband_plan_id,
+              scheduled_broadband_plan_id: (c as any).scheduled_broadband_plan_id || c.broadband_plan_id,
               account_status: "active",
             })
             .eq("id", c.id);

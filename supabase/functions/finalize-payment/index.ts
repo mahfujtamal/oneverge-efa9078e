@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
     if (useConnection) {
       const { data, error } = await supabase
         .from("customer_connections")
-        .select("id, balance, account_status, active_services, scheduled_services, created_at")
+        .select("id, balance, account_status, active_services, scheduled_services, active_addon_plans, scheduled_addon_plans, broadband_plan_id, scheduled_broadband_plan_id, created_at")
         .eq("id", body.connectionId!)
         .eq("customer_id", body.customerId)
         .maybeSingle();
@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
     } else {
       const { data, error } = await supabase
         .from("customers")
-        .select("id, balance, account_status, active_services, scheduled_services, created_at")
+        .select("id, balance, account_status, active_services, scheduled_services, active_addon_plans, scheduled_addon_plans, broadband_plan_id, scheduled_broadband_plan_id, created_at")
         .eq("id", body.customerId)
         .maybeSingle();
       record = data;
@@ -134,6 +134,18 @@ Deno.serve(async (req) => {
       // reactivated, so the next renewal lands one full month from this payment.
       if (body.context === "renewal" && record.account_status === "expired") {
         updates.created_at = new Date().toISOString();
+      }
+
+      // For renewals: promote scheduled addon plan selections and broadband plan
+      // to active so the customer's next-cycle configuration actually takes effect.
+      // Activation skips this — register-customer already sets both columns identically.
+      if (body.context === "renewal") {
+        updates.active_addon_plans = record.scheduled_addon_plans ?? record.active_addon_plans ?? {};
+        updates.scheduled_addon_plans = record.scheduled_addon_plans ?? record.active_addon_plans ?? {};
+        if (record.scheduled_broadband_plan_id) {
+          updates.broadband_plan_id = record.scheduled_broadband_plan_id;
+          updates.scheduled_broadband_plan_id = record.scheduled_broadband_plan_id;
+        }
       }
     }
 
