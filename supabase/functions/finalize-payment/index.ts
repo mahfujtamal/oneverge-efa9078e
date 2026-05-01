@@ -154,11 +154,17 @@ Deno.serve(async (req) => {
     // When the payment targets a connection row, sync the parent customers
     // record too — the login edge function reads from customers.account_status,
     // so without this the user would be routed back to the payment step on next login.
-    if (useConnection && cycleConsumed && body.customerId) {
-      await supabase
+    // We sync on ANY activation payment (not just when the cycle is consumed),
+    // because the activation transaction itself completes the onboarding step
+    // even if the credited balance does not yet cover one full billing cycle.
+    if (useConnection && body.customerId && (cycleConsumed || body.context === "activation")) {
+      const { error: custSyncErr } = await supabase
         .from("customers")
         .update({ account_status: "active" })
         .eq("id", body.customerId);
+      if (custSyncErr) {
+        console.error("customers.account_status sync failed:", custSyncErr.message);
+      }
     }
 
     // Flip payment to success.
