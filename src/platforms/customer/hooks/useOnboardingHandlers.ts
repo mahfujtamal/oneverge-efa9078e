@@ -156,25 +156,20 @@ export function useOnboardingHandlers(state: OnboardingState, navigate: (path: s
     if (!success) return;
 
     try {
-      if (isAddConnection && connectionId) {
-        // Update the new connection's status after feasibility passes
-        const { error } = await (supabase as any)
-          .from("customer_connections")
-          .update({ account_status: "feasibility done" })
-          .eq("id", connectionId);
-        if (error) throw error;
-      } else if (userData?.id) {
-        // New customer — update the primary connection row
-        const connId = userData.connection_id;
-        const connQuery = (supabase as any)
-          .from("customer_connections")
-          .update({ account_status: "feasibility done" });
-        const { error } = await (connId
-          ? connQuery.eq("id", connId)
-          : connQuery.eq("customer_id", userData.id).eq("is_primary", true));
-        if (error) throw error;
-        setUserData((prev: any) => ({ ...prev, account_status: "feasibility done" }));
-      }
+      // connectionId state is set by handleKYCSubmit for both new-customer and
+      // add-connection flows. userData.connection_id is NOT reliable here because
+      // register-customer returns connection_id at the top level, not inside customer.
+      // Direct browser writes are blocked by RLS (SELECT-only policy) so we use
+      // the update-connection-status service-role edge function.
+      const connId = connectionId || userData?.connection_id || null;
+      await supabase.functions.invoke("update-connection-status", {
+        body: {
+          customerId: userData?.id,
+          connectionId: connId,
+          status: "feasibility done",
+        },
+      });
+      setUserData((prev: any) => ({ ...prev, account_status: "feasibility done" }));
     } catch (err) {
       console.error("Failed to update status to feasibility done:", err);
     }
