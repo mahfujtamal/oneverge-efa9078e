@@ -101,42 +101,67 @@ const Index = () => {
       return;
     }
 
-    // Only auto-resume the saved onboarding snapshot if there is an ACTIVE
-    // session. After logout we intentionally keep the snapshot in storage so
-    // the user can resume on next login (Login.tsx re-applies it), but the
-    // landing page itself must render fresh (step 1) for logged-out visitors.
-    const hasActiveSession = !!localStorage.getItem("oneverge_session");
-    const saved = localStorage.getItem("oneverge_onboarding_state");
-    if (saved && hasActiveSession && !routerState?.isMigration) {
-      try {
-        const parsed = JSON.parse(saved);
-        setStep(parsed.step || 1);
-        setLocation(parsed.location || "");
-        setUserData(parsed.userData || { name: "", phone: "", email: "", address: "", nid: "", dob: "" });
-        setActive(parsed.active || { broadband: true });
-        if (parsed.selectedISP) setSelectedISP(parsed.selectedISP);
-        if (parsed.selectedOffer) setSelectedOffer(parsed.selectedOffer);
-        if (parsed.transactionId) setTransactionId(parsed.transactionId);
-        if (parsed.location) setMobileView("isp");
-      } catch (e) {
-        console.error("Recovery failed", e);
-      }
-    }
-  }, [routerState]);
+    // Restore landing step from the primary customer_connections row.
+    // account_status drives which step to resume; all data comes from the DB
+    // and the session object — no localStorage snapshot dependency.
+    let session: Record<string, any> = {};
+    try { session = JSON.parse(localStorage.getItem("oneverge_session") || "{}"); } catch {}
+    const userId = session?.id;
+    if (!userId) return;
 
-  useEffect(() => {
-    // Only persist onboarding progress when there is an active session.
-    // Otherwise a logged-out visitor landing on "/" would immediately
-    // overwrite the saved snapshot with empty step-1 state, defeating the
-    // post-login resume behaviour.
-    const hasActiveSession = !!localStorage.getItem("oneverge_session");
-    if (!routerState?.forceReset && hasActiveSession) {
-      localStorage.setItem(
-        "oneverge_onboarding_state",
-        JSON.stringify({ step, location, userData, active, selectedISP, selectedOffer, transactionId }),
-      );
-    }
-  }, [step, location, userData, active, selectedISP, selectedOffer, transactionId, routerState]);
+    (async () => {
+      try {
+        const { data: conn } = await (supabase as any)
+          .from("customer_connections")
+          .select("id, account_status, isp_id, broadband_plan_id, scheduled_services")
+          .eq("customer_id", userId)
+          .order("is_primary", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!conn) return;
+
+        if (conn.account_status === "account created") {
+          setUserData({ ...session, connection_id: conn.id, password: undefined });
+          setStep(5);
+        } else if (conn.account_status === "feasibility done") {
+          setUserData({ ...session, connection_id: conn.id, password: undefined });
+          setLocation(session.location || session.address || "");
+
+          if (conn.isp_id) setSelectedISP({ id: conn.isp_id, name: session.ispName || "" });
+
+          if (conn.broadband_plan_id) {
+            const { data: plan } = await (supabase as any)
+              .from("broadband_plans")
+              .select("id, name, speed, price, base_price")
+              .eq("id", conn.broadband_plan_id)
+              .maybeSingle();
+            if (plan) {
+              setSelectedOffer({
+                id: plan.id,
+                name: plan.name || plan.speed,
+                speed: plan.speed,
+                price: Number(plan.price ?? plan.base_price ?? 0),
+              });
+            }
+          }
+
+          const services: string[] = conn.scheduled_services || [];
+          setActive(
+            services.reduce(
+              (acc: Record<string, boolean>, id: string) => ({ ...acc, [id]: true }),
+              { broadband: true },
+            ),
+          );
+
+          setStep(7);
+        }
+        // "active", "expired", etc. are routed to /dashboard by Login.tsx
+      } catch (err) {
+        console.error("Session restoration failed:", err);
+      }
+    })();
+  }, [routerState]);
 
   // --- PRICING BREAKDOWN FETCH (Step 7 summary) ---
   // Pulls per-component split (base / VAT / tax / surcharge) for:
