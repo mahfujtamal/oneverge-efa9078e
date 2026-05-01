@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      addon_plans: {
+        Row: {
+          base_price: number
+          created_at: string
+          effective_from: string
+          id: string
+          is_active: boolean
+          name: string
+          price: number
+          service_id: string
+          surplus_charge: number
+          tax: number
+          updated_at: string
+          vat: number
+        }
+        Insert: {
+          base_price?: number
+          created_at?: string
+          effective_from?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          price: number
+          service_id: string
+          surplus_charge?: number
+          tax?: number
+          updated_at?: string
+          vat?: number
+        }
+        Update: {
+          base_price?: number
+          created_at?: string
+          effective_from?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          price?: number
+          service_id?: string
+          surplus_charge?: number
+          tax?: number
+          updated_at?: string
+          vat?: number
+        }
+        Relationships: []
+      }
       addons: {
         Row: {
           base_price: number
@@ -88,6 +133,7 @@ export type Database = {
       billing_history: {
         Row: {
           billing_period: string
+          connection_id: string | null
           created_at: string
           customer_id: string | null
           id: string
@@ -97,6 +143,7 @@ export type Database = {
         }
         Insert: {
           billing_period: string
+          connection_id?: string | null
           created_at?: string
           customer_id?: string | null
           id?: string
@@ -106,6 +153,7 @@ export type Database = {
         }
         Update: {
           billing_period?: string
+          connection_id?: string | null
           created_at?: string
           customer_id?: string | null
           id?: string
@@ -114,6 +162,13 @@ export type Database = {
           total_billed?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "billing_history_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "customer_connections"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "billing_history_customer_id_fkey"
             columns: ["customer_id"]
@@ -179,9 +234,109 @@ export type Database = {
           },
         ]
       }
+      customer_connections: {
+        Row: {
+          account_status: string
+          active_addon_plans: Json
+          active_services: string[]
+          address: string | null
+          area_id: string | null
+          balance: number
+          broadband_plan_id: string | null
+          connection_label: string
+          created_at: string
+          customer_id: string
+          id: string
+          is_primary: boolean
+          isp_id: string | null
+          scheduled_addon_plans: Json
+          scheduled_broadband_plan_id: string | null
+          scheduled_services: string[]
+          speed: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_status?: string
+          active_addon_plans?: Json
+          active_services?: string[]
+          address?: string | null
+          area_id?: string | null
+          balance?: number
+          broadband_plan_id?: string | null
+          connection_label?: string
+          created_at?: string
+          customer_id: string
+          id?: string
+          is_primary?: boolean
+          isp_id?: string | null
+          scheduled_addon_plans?: Json
+          scheduled_broadband_plan_id?: string | null
+          scheduled_services?: string[]
+          speed?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_status?: string
+          active_addon_plans?: Json
+          active_services?: string[]
+          address?: string | null
+          area_id?: string | null
+          balance?: number
+          broadband_plan_id?: string | null
+          connection_label?: string
+          created_at?: string
+          customer_id?: string
+          id?: string
+          is_primary?: boolean
+          isp_id?: string | null
+          scheduled_addon_plans?: Json
+          scheduled_broadband_plan_id?: string | null
+          scheduled_services?: string[]
+          speed?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_connections_area_id_fkey"
+            columns: ["area_id"]
+            isOneToOne: false
+            referencedRelation: "areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_connections_broadband_plan_id_fkey"
+            columns: ["broadband_plan_id"]
+            isOneToOne: false
+            referencedRelation: "broadband_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_connections_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_connections_isp_id_fkey"
+            columns: ["isp_id"]
+            isOneToOne: false
+            referencedRelation: "isps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_connections_scheduled_broadband_plan_id_fkey"
+            columns: ["scheduled_broadband_plan_id"]
+            isOneToOne: false
+            referencedRelation: "broadband_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           account_status: string | null
+          active_addon_plans: Json
           active_services: string[] | null
           address: string | null
           area_id: string | null
@@ -197,6 +352,8 @@ export type Database = {
           nid: number | null
           password_hash: string | null
           phone_number: string | null
+          scheduled_addon_plans: Json
+          scheduled_broadband_plan_id: string | null
           scheduled_services: string[] | null
           speed: string | null
           updated_at: string
@@ -204,6 +361,7 @@ export type Database = {
         }
         Insert: {
           account_status?: string | null
+          active_addon_plans?: Json
           active_services?: string[] | null
           address?: string | null
           area_id?: string | null
@@ -219,6 +377,8 @@ export type Database = {
           nid?: number | null
           password_hash?: string | null
           phone_number?: string | null
+          scheduled_addon_plans?: Json
+          scheduled_broadband_plan_id?: string | null
           scheduled_services?: string[] | null
           speed?: string | null
           updated_at?: string
@@ -226,6 +386,7 @@ export type Database = {
         }
         Update: {
           account_status?: string | null
+          active_addon_plans?: Json
           active_services?: string[] | null
           address?: string | null
           area_id?: string | null
@@ -241,6 +402,8 @@ export type Database = {
           nid?: number | null
           password_hash?: string | null
           phone_number?: string | null
+          scheduled_addon_plans?: Json
+          scheduled_broadband_plan_id?: string | null
           scheduled_services?: string[] | null
           speed?: string | null
           updated_at?: string
@@ -266,6 +429,13 @@ export type Database = {
             columns: ["isp_id"]
             isOneToOne: false
             referencedRelation: "isps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customers_scheduled_broadband_plan_id_fkey"
+            columns: ["scheduled_broadband_plan_id"]
+            isOneToOne: false
+            referencedRelation: "broadband_plans"
             referencedColumns: ["id"]
           },
         ]
@@ -1042,6 +1212,10 @@ export type Database = {
       }
       verify_customer_password: {
         Args: { _customer_id: string; _password: string }
+        Returns: boolean
+      }
+      verify_customer_session: {
+        Args: { customer_id: string }
         Returns: boolean
       }
     }
