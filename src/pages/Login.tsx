@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { AlertCircle, Eye, EyeOff } from "lucide-react";
+import { normalizeOnboardingStep } from "@/platforms/customer/hooks/useOnboardingState";
 
 const Login = () => {
   const [identifier, setIdentifier] = useState("");
@@ -67,7 +68,12 @@ const Login = () => {
       };
 
       const savedStep = localStorage.getItem("oneverge_last_step");
-      const existingState = JSON.parse(localStorage.getItem("oneverge_onboarding_state") || "{}");
+      let existingState: Record<string, any> = {};
+      try {
+        existingState = JSON.parse(localStorage.getItem("oneverge_onboarding_state") || "{}");
+      } catch {
+        localStorage.removeItem("oneverge_onboarding_state");
+      }
 
       const restoredISP = resolvedIspId
         ? { id: resolvedIspId, name: resolvedIspName }
@@ -116,7 +122,7 @@ const Login = () => {
           selectedOffer: restoredOffer,
           location: restoredLocation,
           active: restoredActive,
-          step: savedStep ? parseInt(savedStep, 10) : dbFallbackStep,
+          step: normalizeOnboardingStep(savedStep ?? dbFallbackStep),
         }),
       );
       localStorage.removeItem("oneverge_last_step");
