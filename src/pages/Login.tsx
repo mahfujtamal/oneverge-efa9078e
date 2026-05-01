@@ -74,9 +74,7 @@ const Login = () => {
         localStorage.removeItem("oneverge_onboarding_state");
       }
 
-      const restoredISP = resolvedIspId
-        ? { id: resolvedIspId, name: resolvedIspName }
-        : existingState.selectedISP;
+      const restoredISP = resolvedIspId ? { id: resolvedIspId, name: resolvedIspName } : existingState.selectedISP;
       const restoredLocation = user.location || user.address || existingState.location || "";
 
       // Reconstruct active addon map from scheduled_services (what the customer selected).
@@ -88,10 +86,13 @@ const Login = () => {
             : null) || [];
       const restoredActive: Record<string, boolean> =
         services.length > 0
-          ? services.reduce((acc: Record<string, boolean>, id: string) => {
-              acc[id] = true;
-              return acc;
-            }, { broadband: true })
+          ? services.reduce(
+              (acc: Record<string, boolean>, id: string) => {
+                acc[id] = true;
+                return acc;
+              },
+              { broadband: true },
+            )
           : existingState.active || { broadband: true };
 
       // Restore addon plan selections from the connection's active_addon_plans.
