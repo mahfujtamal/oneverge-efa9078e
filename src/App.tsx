@@ -3,7 +3,6 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { ErrorBoundary } from "@/shared/components/ErrorBoundary";
 
 import Landing from "@/platforms/customer/pages/Landing";
 import Login from "./pages/Login.tsx";
@@ -29,32 +28,30 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <ErrorBoundary>
-          <Routes>
-            {/* Public routes */}
-            <Route path="/" element={<Landing />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/unsubscribe" element={<Unsubscribe />} />
-            <Route path="/logout" element={<Logout />} />
+        <Routes>
+          {/* Public routes */}
+          <Route path="/" element={<Landing />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/unsubscribe" element={<Unsubscribe />} />
+          <Route path="/logout" element={<Logout />} />
 
-            {/* Customer protected routes */}
-            <Route element={<ProtectedRoute />}>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/support" element={<SupportCenter />} />
-              <Route path="/billing" element={<BillingVault />} />
-              <Route path="/renew" element={<RenewPayment />} />
-            </Route>
+          {/* Customer protected routes */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/support" element={<SupportCenter />} />
+            <Route path="/billing" element={<BillingVault />} />
+            <Route path="/renew" element={<RenewPayment />} />
+          </Route>
 
-            {/* Admin-only route — RBAC: restricted to admin email (see ProtectedRoute) */}
-            <Route element={<ProtectedRoute requiredRole="admin" />}>
-              <Route path="/admin/renewal-simulator" element={<RenewalSimulator />} />
-            </Route>
+          {/* Admin-only route — RBAC: restricted to admin email (see ProtectedRoute) */}
+          <Route element={<ProtectedRoute requiredRole="admin" />}>
+            <Route path="/admin/renewal-simulator" element={<RenewalSimulator />} />
+          </Route>
 
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </ErrorBoundary>
+          <Route path="*" element={<NotFound />} />
+        </Routes>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

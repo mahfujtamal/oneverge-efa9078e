@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { AlertCircle, Eye, EyeOff } from "lucide-react";
-import { normalizeOnboardingStep } from "@/platforms/customer/hooks/useOnboardingState";
+import { normalizeOnboardingStep, shouldOpenDashboardForStatus } from "@/platforms/customer/hooks/useOnboardingState";
 
 const Login = () => {
   const [identifier, setIdentifier] = useState("");
@@ -111,11 +111,7 @@ const Login = () => {
         dbFallbackStep = 7;
       }
 
-      const shouldOpenDashboard =
-        user.account_status === "activation payment done" ||
-        user.account_status === "active" ||
-        user.account_status === "expired" ||
-        user.account_status === "terminated";
+      const shouldOpenDashboard = shouldOpenDashboardForStatus(user.account_status);
 
       localStorage.setItem("oneverge_session", JSON.stringify(enrichedSession));
       localStorage.setItem("oneverge_user", JSON.stringify(enrichedSession));

@@ -1,6 +1,4 @@
 import { createRoot } from "react-dom/client";
-import App from "./App.tsx";
-import { ErrorBoundary } from "./shared/components/ErrorBoundary";
 import "./index.css";
 
 const rootEl = document.getElementById("root")!;
@@ -45,12 +43,25 @@ window.addEventListener("unhandledrejection", (e) => {
   paintFatalFallback(String(e.reason?.stack ?? e.reason ?? "Unhandled promise rejection"));
 });
 
-try {
+async function bootstrap() {
+  const [{ default: App }, { ErrorBoundary }] = await Promise.all([
+    import("./App.tsx"),
+    import("./shared/components/ErrorBoundary"),
+  ]);
+
   createRoot(rootEl).render(
     <ErrorBoundary label="App">
       <App />
     </ErrorBoundary>
   );
+}
+
+try {
+  bootstrap().catch((err) => {
+    // eslint-disable-next-line no-console
+    console.error("[bootstrap failed]", err);
+    paintFatalFallback(String((err as Error)?.stack ?? err));
+  });
 } catch (err) {
   // eslint-disable-next-line no-console
   console.error("[mount failed]", err);

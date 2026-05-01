@@ -2,10 +2,27 @@ import { useState, useEffect } from "react";
 
 const EMPTY_USER_DATA = { name: "", phone: "", email: "", address: "", nid: "", dob: "", password: "" };
 const VALID_ONBOARDING_STEPS = new Set([1, 2, 3, 4, 5, 5.5, 7, 8]);
+const DASHBOARD_ACCOUNT_STATUSES = new Set(["activation payment done", "active", "expired", "terminated"]);
 
 export function normalizeOnboardingStep(value: unknown): number {
   const next = typeof value === "string" ? Number(value) : Number(value);
   return VALID_ONBOARDING_STEPS.has(next) ? next : 1;
+}
+
+export function shouldOpenDashboardForStatus(status: unknown): boolean {
+  return DASHBOARD_ACCOUNT_STATUSES.has(String(status || "").toLowerCase());
+}
+
+function readStoredSession(): any | null {
+  const raw = localStorage.getItem("oneverge_session") || localStorage.getItem("oneverge_user");
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    localStorage.removeItem("oneverge_session");
+    localStorage.removeItem("oneverge_user");
+    return null;
+  }
 }
 
 type UserData = {
@@ -72,7 +89,14 @@ export function useOnboardingState(routerState: unknown) {
       return;
     }
 
-    const hasActiveSession = !!localStorage.getItem("oneverge_session");
+    const storedSession = readStoredSession();
+    if (shouldOpenDashboardForStatus(storedSession?.account_status) && !state?.addConnection) {
+      localStorage.removeItem("oneverge_onboarding_state");
+      setSafeStep(1);
+      return;
+    }
+
+    const hasActiveSession = !!storedSession;
     const saved = localStorage.getItem("oneverge_onboarding_state");
     if (saved && hasActiveSession && !state?.isMigration) {
       try {
@@ -94,9 +118,10 @@ export function useOnboardingState(routerState: unknown) {
 
   // Persistence — password field is stripped before saving (security fix)
   useEffect(() => {
-    const hasActiveSession = !!localStorage.getItem("oneverge_session");
+    const storedSession = readStoredSession();
+    const hasActiveSession = !!storedSession;
     const state = routerState as any;
-    if (!state?.forceReset && hasActiveSession) {
+    if (!state?.forceReset && hasActiveSession && !shouldOpenDashboardForStatus(storedSession?.account_status)) {
       const { password: _pw, ...safeUserData } = userData;
       localStorage.setItem(
         "oneverge_onboarding_state",

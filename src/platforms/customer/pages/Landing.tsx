@@ -4,7 +4,7 @@ import { AnimatePresence } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-import { useOnboardingState } from "@/platforms/customer/hooks/useOnboardingState";
+import { shouldOpenDashboardForStatus, useOnboardingState } from "@/platforms/customer/hooks/useOnboardingState";
 import { usePricingBreakdown } from "@/platforms/customer/hooks/usePricingBreakdown";
 import { useOnboardingHandlers } from "@/platforms/customer/hooks/useOnboardingHandlers";
 import { useAddonPlans } from "@/shared/hooks/useAddonPlans";
@@ -24,6 +24,23 @@ const Landing = () => {
   // "Add Connection" mode: existing customer adding a second broadband connection.
   // Skip identity steps (step 1 hero, step 4 KYC form).
   const isAddConnection = !!(routerState as any)?.addConnection;
+
+  React.useEffect(() => {
+    if (isAddConnection) return;
+    const saved = localStorage.getItem("oneverge_session") || localStorage.getItem("oneverge_user");
+    if (!saved) return;
+    try {
+      const session = JSON.parse(saved);
+      if (session?.id && shouldOpenDashboardForStatus(session.account_status)) {
+        localStorage.removeItem("oneverge_onboarding_state");
+        localStorage.removeItem("oneverge_last_step");
+        navigate("/dashboard", { replace: true });
+      }
+    } catch {
+      localStorage.removeItem("oneverge_session");
+      localStorage.removeItem("oneverge_user");
+    }
+  }, [isAddConnection, navigate]);
 
   const state = useOnboardingState(routerState);
   const {
