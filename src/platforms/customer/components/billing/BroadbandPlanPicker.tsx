@@ -68,7 +68,7 @@ const BroadbandPlanPicker = ({
                 </p>
               </div>
               <p className={`font-mono text-[10px] font-bold ${active ? "text-ov-primary" : "text-gray-500"}`}>
-                {PRICING_CONFIG.CURRENCY} {plan.price.toLocaleString()}
+                {PRICING_CONFIG.CURRENCY} {(plan.price ?? 0).toLocaleString()}
               </p>
             </button>
           );

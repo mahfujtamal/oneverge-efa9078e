@@ -51,7 +51,7 @@ const AddonPlanPicker = ({
               </p>
 
               <p className={`font-mono text-[13px] font-black ${selected ? "text-white" : "text-gray-400"}`}>
-                {PRICING_CONFIG.CURRENCY} {plan.price.toLocaleString()}
+                {PRICING_CONFIG.CURRENCY} {(plan.price ?? 0).toLocaleString()}
               </p>
 
               {/* Price breakdown — visible on hover */}
