@@ -105,10 +105,13 @@ const PaymentGateway = ({
   const grossAmount = useMemo(() => {
     const addonsTotal = Object.entries(activeAddons)
       .filter(([id, active]) => active && id !== "broadband")
-      .reduce((sum, [id]) => sum + (ONEVERGE_SUITE_RATES[id] || 0), 0);
+      .reduce((sum, [id]) => {
+        const planPrice = pricingBreakdown?.items.find((item) => item.id === id)?.total;
+        return sum + (planPrice ?? ONEVERGE_SUITE_RATES[id] ?? 0);
+      }, 0);
 
     return basePrice + addonsTotal + (Number(installationFee) || 0);
-  }, [activeAddons, basePrice, installationFee]);
+  }, [activeAddons, basePrice, installationFee, pricingBreakdown]);
 
   // Net amount actually charged to the customer after applying advance
   // payments already held in the wallet. Installation is excluded from
@@ -274,7 +277,7 @@ const PaymentGateway = ({
                         <span className="text-[10px] font-black uppercase text-gray-400">{service.name}</span>
                       </div>
                       <span className={`font-mono font-bold ${isActive ? "text-white/80" : "text-gray-600"}`}>
-                        +{PRICING_CONFIG.CURRENCY} {ONEVERGE_SUITE_RATES[service.id]?.toLocaleString()}
+                        +{PRICING_CONFIG.CURRENCY} {(pricingBreakdown?.items.find((item) => item.id === service.id)?.total ?? ONEVERGE_SUITE_RATES[service.id] ?? 0).toLocaleString()}
                       </span>
                     </motion.div>
                   );
