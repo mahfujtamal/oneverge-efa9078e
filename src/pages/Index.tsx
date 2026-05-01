@@ -313,6 +313,17 @@ const Index = () => {
           }
         }
 
+        // Last resort: if all DB queries returned nothing but selectedOffer is
+        // already populated from the restoration useEffect, use it directly.
+        if (plans.length === 0 && selectedOffer?.id) {
+          plans = [{
+            id: selectedOffer.id,
+            name: selectedOffer.name || selectedOffer.speed || "Current Plan",
+            speed: selectedOffer.speed || "",
+            price: selectedOffer.price ?? 0,
+          }];
+        }
+
         setBroadbandPlans(plans);
 
         // Pre-select the plan: prefer what the customer chose at step 3,
