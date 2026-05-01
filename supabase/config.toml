@@ -1,0 +1,28 @@
+project_id = "jkzuebcpeksyedeelleo"
+
+[functions.login]
+verify_jwt = false
+
+[functions.register-customer]
+verify_jwt = false
+
+[functions.forgot-password]
+verify_jwt = false
+
+[functions.reset-password]
+verify_jwt = false
+
+[functions.process-email-queue]
+verify_jwt = true
+
+[functions.send-transactional-email]
+verify_jwt = true
+
+[functions.preview-transactional-email]
+verify_jwt = false
+
+[functions.handle-email-unsubscribe]
+verify_jwt = false
+
+[functions.handle-email-suppression]
+verify_jwt = false

@@ -1,0 +1,91 @@
+@layer components {
+  /* --- MASTER LAYOUT WRAPPERS --- */
+
+  .ov-page-container {
+    @apply h-screen w-full bg-background text-foreground flex overflow-hidden font-sans text-left text-[14px];
+  }
+
+  /* FIXED: pb-32 ensures content clears the Mobile Bottom Nav Rail */
+  .ov-main-content {
+    @apply flex-1 overflow-y-auto p-6 lg:p-10 pb-32 lg:pb-10 custom-scrollbar;
+  }
+
+  .ov-flex-center {
+    @apply flex flex-col items-center justify-center text-center;
+  }
+
+  /* --- TYPOGRAPHY & BRANDING --- */
+
+  .ov-h1 {
+    @apply text-3xl lg:text-5xl font-black uppercase italic tracking-tighter leading-none;
+  }
+
+  .ov-section-label {
+    @apply text-[9px] font-black uppercase tracking-[0.4em] text-ov-primary;
+  }
+
+  /* --- REFINED BALANCE WIDGET (Pink Box) --- */
+  .ov-balance-widget {
+    @apply bg-[#e2136e] rounded-[32px] p-6 h-[120px] w-full
+           flex flex-col justify-between relative overflow-hidden
+           transition-all duration-500 hover:scale-[1.02]
+           shadow-[0_20px_50px_rgba(226,19,110,0.3)] cursor-pointer;
+  }
+
+  .ov-balance-label {
+    @apply text-[9px] font-black uppercase tracking-[0.4em] text-white relative z-10;
+  }
+
+  .ov-balance-value {
+    @apply text-3xl font-black text-white italic tracking-tighter leading-none relative z-10;
+  }
+
+  /* --- SIGNATURE COMPONENT LIBRARY --- */
+
+  .ov-glass-card {
+    @apply rounded-ov-suite border border-white/5 bg-white/[0.02] backdrop-blur-md transition-all duration-300;
+  }
+
+  .ov-telemetry-card {
+    @apply ov-glass-card p-6 md:p-8 flex flex-col md:flex-row
+           justify-between items-center gap-6 border-white/10;
+  }
+
+  .ov-badge {
+    @apply bg-black/20 px-3 py-1 rounded-full border border-white/10 uppercase font-black text-[8px] tracking-widest flex items-center gap-2;
+  }
+
+  /* --- NAVIGATION SYSTEM --- */
+
+  .ov-sidebar-item {
+    @apply w-full flex items-center gap-4 p-4 rounded-2xl transition-colors text-gray-500 hover:bg-white/5 hover:text-white text-left;
+  }
+
+  .ov-sidebar-item-active {
+    @apply ov-sidebar-item bg-ov-primary text-black shadow-[0_0_20px_rgba(34,211,238,0.2)] hover:bg-ov-primary hover:text-black;
+  }
+
+  /* --- ACTION SYSTEM --- */
+
+  .ov-btn-primary {
+    @apply font-black uppercase text-[10px] rounded-xl h-12 bg-white text-black hover:bg-ov-primary transition-all flex items-center justify-center gap-2 px-8 active:scale-95 shadow-xl hover:shadow-ov-primary/20;
+  }
+
+  .ov-btn-ghost {
+    @apply font-black uppercase text-[10px] rounded-xl h-12 bg-white/5 text-white border border-white/5 hover:bg-white hover:text-black transition-all flex items-center justify-center gap-2 px-8 active:scale-95;
+  }
+
+  /* --- SCROLLBAR REFINEMENT --- */
+
+  .custom-scrollbar::-webkit-scrollbar {
+    @apply w-1.5;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-white/10 rounded-full hover:bg-white/20 transition-colors;
+  }
+}
