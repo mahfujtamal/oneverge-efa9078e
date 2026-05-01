@@ -19,7 +19,7 @@ const corsHeaders = {
 interface FinalisePayload {
   context: "activation" | "renewal" | "topup";
   customerId: string;
-  connectionId: string;
+  connectionId?: string | null; // If provided, operates on customer_connections row
   transactionId: string;
   amountPaid: number;
   basePrice: number;
@@ -74,19 +74,31 @@ Deno.serve(async (req) => {
       { auth: { persistSession: false } },
     );
 
-    if (!body.connectionId) {
-      return new Response(
-        JSON.stringify({ ok: false, error: "connection_id_required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
+    // Prefer operating on customer_connections when a connectionId is provided.
+    // Fall back to customers for backward compat (no connectionId supplied).
+    const useConnection = !!body.connectionId;
 
-    const { data: record, error: recordErr } = await supabase
-      .from("customer_connections")
-      .select("id, balance, account_status, active_services, scheduled_services, active_addon_plans, scheduled_addon_plans, broadband_plan_id, scheduled_broadband_plan_id, created_at")
-      .eq("id", body.connectionId)
-      .eq("customer_id", body.customerId)
-      .maybeSingle();
+    let record: Record<string, any> | null = null;
+    let recordErr: any = null;
+
+    if (useConnection) {
+      const { data, error } = await supabase
+        .from("customer_connections")
+        .select("id, balance, account_status, active_services, scheduled_services, active_addon_plans, scheduled_addon_plans, broadband_plan_id, scheduled_broadband_plan_id, created_at")
+        .eq("id", body.connectionId!)
+        .eq("customer_id", body.customerId)
+        .maybeSingle();
+      record = data;
+      recordErr = error;
+    } else {
+      const { data, error } = await supabase
+        .from("customers")
+        .select("id, balance, account_status, active_services, scheduled_services, active_addon_plans, scheduled_addon_plans, broadband_plan_id, scheduled_broadband_plan_id, created_at")
+        .eq("id", body.customerId)
+        .maybeSingle();
+      record = data;
+      recordErr = error;
+    }
 
     if (recordErr || !record) {
       return new Response(
@@ -137,15 +149,34 @@ Deno.serve(async (req) => {
       }
     }
 
+    const table = useConnection ? "customer_connections" : "customers";
+    const idCol = useConnection ? body.connectionId! : body.customerId;
+
     const { error: updErr } = await supabase
-      .from("customer_connections")
+      .from(table)
       .update(updates)
-      .eq("id", body.connectionId);
+      .eq("id", idCol);
     if (updErr) {
       return new Response(
         JSON.stringify({ ok: false, error: "customer_update_failed", detail: updErr.message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
+    }
+
+    // When the payment targets a connection row, sync the parent customers
+    // record too — the login edge function reads from customers.account_status,
+    // so without this the user would be routed back to the payment step on next login.
+    // We sync on ANY activation payment (not just when the cycle is consumed),
+    // because the activation transaction itself completes the onboarding step
+    // even if the credited balance does not yet cover one full billing cycle.
+    if (useConnection && body.customerId && (cycleConsumed || body.context === "activation")) {
+      const { error: custSyncErr } = await supabase
+        .from("customers")
+        .update({ account_status: "active" })
+        .eq("id", body.customerId);
+      if (custSyncErr) {
+        console.error("customers.account_status sync failed:", custSyncErr.message);
+      }
     }
 
     // Flip payment to success.

@@ -61,18 +61,28 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Insert identity-only customer record (no location, plan, or billing fields).
-    // All service/billing/location data goes into customer_connections below.
+    // Insert customer record (without password)
     const { data: inserted, error: insertErr } = await supabase
       .from("customers")
-      .insert([{
-        user_id,
-        display_name,
-        phone_number,
-        email,
-        nid: nid != null ? Number(nid) : null,
-        dob: dob || null,
-      }])
+      .insert([
+        {
+          user_id,
+          display_name,
+          phone_number,
+          email,
+          address,
+          area_id,
+          isp_id: isp_id || null,
+          broadband_plan_id: broadband_plan_id || null,
+          nid: nid != null ? Number(nid) : null,
+          dob: dob || null,
+          active_services: active_services || [],
+          scheduled_services: scheduled_services || [],
+          speed: speed || "50 Mbps",
+          balance: 0,
+          account_status: "account created",
+        },
+      ])
       .select()
       .single();
 
@@ -100,7 +110,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Create the primary connection row — this owns ALL location, plan, and billing state.
+    // Create the first connection row for this customer.
     const { data: connection, error: connErr } = await supabase
       .from("customer_connections")
       .insert([{
@@ -125,6 +135,7 @@ Deno.serve(async (req) => {
     if (connErr || !connection) {
       console.error("customer_connections insert failed:", connErr);
       // Non-fatal: customer row exists; connection can be created by retry.
+      // Still return the customer so onboarding can proceed.
     }
 
     // Strip any sensitive fields before returning
