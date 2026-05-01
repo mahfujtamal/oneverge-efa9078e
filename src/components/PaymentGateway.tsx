@@ -5,6 +5,9 @@ import { PRICING_CONFIG, ONEVERGE_SUITE_RATES, PAYMENT_CONFIG, REVIEW_LABELS, AL
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
+import AddonPlanPicker from "@/platforms/customer/components/billing/AddonPlanPicker";
+import type { AddonPlan } from "@/shared/hooks/useAddonPlans";
+import type { BroadbandPlan } from "@/platforms/customer/hooks/useScheduleConfig";
 
 interface PaymentGatewayProps {
   activeAddons: Record<string, boolean>;
@@ -70,6 +73,14 @@ interface PaymentGatewayProps {
    * their wallet — the cron auto-renews when balance ≥ cycle cost.
    */
   allowAmountEdit?: boolean;
+  /** Addon plans grouped by service ID for inline plan selection in the order summary. */
+  addonPlansByService?: Record<string, AddonPlan[]>;
+  selectedAddonPlans?: Record<string, string>;
+  onSelectAddonPlan?: (serviceId: string, planId: string) => void;
+  /** Broadband plans available for this ISP/area so the customer can switch at checkout. */
+  broadbandPlans?: BroadbandPlan[];
+  selectedBroadbandPlanId?: string | null;
+  onSelectBroadbandPlan?: (planId: string, price: number, speed: string) => void;
 }
 
 const PaymentGateway = ({
@@ -87,6 +98,12 @@ const PaymentGateway = ({
   pricingBreakdown,
   existingCredit = 0,
   allowAmountEdit = false,
+  addonPlansByService,
+  selectedAddonPlans,
+  onSelectAddonPlan,
+  broadbandPlans,
+  selectedBroadbandPlanId,
+  onSelectBroadbandPlan,
 }: PaymentGatewayProps) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeMethod, setActiveMethod] = useState<string | null>(null);
@@ -238,19 +255,53 @@ const PaymentGateway = ({
             </div>
 
             <div className="flex-1 space-y-3 lg:overflow-y-auto no-scrollbar pr-1">
-              <div className="flex justify-between items-center p-4 rounded-2xl bg-white/[0.04] border border-white/5">
-                <div className="flex items-center gap-3">
-                  <Zap size={14} className="text-ov-primary" />
-                  <span className="text-[10px] font-black uppercase text-white">Base Provision</span>
-                </div>
-                <span className="font-mono font-bold text-ov-primary italic">
-                  {PRICING_CONFIG.CURRENCY} {basePrice.toLocaleString()}
-                </span>
+              {/* Broadband plan — show picker when multiple plans available */}
+              <div className={`rounded-2xl bg-white/[0.04] border border-white/5 ${broadbandPlans && broadbandPlans.length > 1 ? "p-3 space-y-2" : "p-4 flex justify-between items-center"}`}>
+                {broadbandPlans && broadbandPlans.length > 1 ? (
+                  <>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-gray-500 px-1">Broadband Plan</p>
+                    {broadbandPlans.map((plan) => {
+                      const selected = plan.id === selectedBroadbandPlanId || (!selectedBroadbandPlanId && plan.price === basePrice);
+                      return (
+                        <button
+                          key={plan.id}
+                          type="button"
+                          disabled={isProcessing}
+                          onClick={() => onSelectBroadbandPlan?.(plan.id, plan.price, plan.speed)}
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl border text-left transition-all duration-200 disabled:opacity-30 ${
+                            selected ? "bg-white/5 border-white/20" : "bg-black/30 border-white/5 hover:border-white/15 hover:bg-white/[0.03]"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Zap size={10} className={selected ? "text-ov-primary" : "text-gray-500"} />
+                            <span className={`text-[9px] font-black uppercase tracking-tight ${selected ? "text-white" : "text-gray-400"}`}>
+                              {selected && "✓ "}{plan.speed}
+                            </span>
+                          </div>
+                          <span className={`font-mono text-[9px] font-black ${selected ? "text-ov-primary" : "text-gray-500"}`}>
+                            {PRICING_CONFIG.CURRENCY}{plan.price.toLocaleString()}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-3">
+                      <Zap size={14} className="text-ov-primary" />
+                      <span className="text-[10px] font-black uppercase text-white">Base Provision</span>
+                    </div>
+                    <span className="font-mono font-bold text-ov-primary italic">
+                      {PRICING_CONFIG.CURRENCY} {basePrice.toLocaleString()}
+                    </span>
+                  </>
+                )}
               </div>
 
               <AnimatePresence>
                 {ALL_SERVICES.filter((s) => s.id !== "broadband").map((service) => {
                   const isActive = !!activeAddons[service.id];
+                  const servicePlans = addonPlansByService?.[service.id] ?? [];
 
                   return (
                     <motion.div
@@ -258,27 +309,42 @@ const PaymentGateway = ({
                       layout
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
-                      className={`flex justify-between items-center p-4 rounded-2xl transition-all ${
+                      className={`rounded-2xl transition-all ${
                         isActive
                           ? "bg-white/[0.04] border border-white/10"
                           : "bg-white/[0.01] border border-dashed border-white/5 opacity-50 hover:opacity-100"
                       }`}
                     >
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={() => toggleAddon(service.id)}
-                          disabled={isProcessing}
-                          className={`transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
-                            isActive ? "text-gray-500 hover:text-red-500" : "text-gray-500 hover:text-cyan-400"
-                          }`}
-                        >
-                          {isActive ? <Trash2 size={14} /> : <PlusCircle size={14} />}
-                        </button>
-                        <span className="text-[10px] font-black uppercase text-gray-400">{service.name}</span>
+                      <div className="flex justify-between items-center p-4">
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => toggleAddon(service.id)}
+                            disabled={isProcessing}
+                            className={`transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                              isActive ? "text-gray-500 hover:text-red-500" : "text-gray-500 hover:text-cyan-400"
+                            }`}
+                          >
+                            {isActive ? <Trash2 size={14} /> : <PlusCircle size={14} />}
+                          </button>
+                          <span className="text-[10px] font-black uppercase text-gray-400">{service.name}</span>
+                        </div>
+                        <span className={`font-mono font-bold ${isActive ? "text-white/80" : "text-gray-600"}`}>
+                          +{PRICING_CONFIG.CURRENCY} {(pricingBreakdown?.items.find((item) => item.id === service.id)?.total ?? ONEVERGE_SUITE_RATES[service.id] ?? 0).toLocaleString()}
+                        </span>
                       </div>
-                      <span className={`font-mono font-bold ${isActive ? "text-white/80" : "text-gray-600"}`}>
-                        +{PRICING_CONFIG.CURRENCY} {(pricingBreakdown?.items.find((item) => item.id === service.id)?.total ?? ONEVERGE_SUITE_RATES[service.id] ?? 0).toLocaleString()}
-                      </span>
+                      {isActive && servicePlans.length > 0 && onSelectAddonPlan && (
+                        <div className="px-4 pb-3 border-t border-white/5 pt-2">
+                          <AddonPlanPicker
+                            serviceId={service.id}
+                            serviceName={service.name}
+                            serviceColor="text-cyan-400"
+                            plans={servicePlans}
+                            selectedPlanId={selectedAddonPlans?.[service.id] ?? null}
+                            onSelect={(planId) => onSelectAddonPlan(service.id, planId)}
+                            compact
+                          />
+                        </div>
+                      )}
                     </motion.div>
                   );
                 })}

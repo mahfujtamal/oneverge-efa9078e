@@ -8,6 +8,8 @@ import { shouldOpenDashboardForStatus, useOnboardingState } from "@/platforms/cu
 import { usePricingBreakdown } from "@/platforms/customer/hooks/usePricingBreakdown";
 import { useOnboardingHandlers } from "@/platforms/customer/hooks/useOnboardingHandlers";
 import { useAddonPlans } from "@/shared/hooks/useAddonPlans";
+import { supabase } from "@/integrations/supabase/client";
+import type { BroadbandPlan } from "@/platforms/customer/hooks/useScheduleConfig";
 
 import StepHero from "@/platforms/customer/components/onboarding/StepHero";
 import StepBundleBuilder from "@/platforms/customer/components/onboarding/StepBundleBuilder";
@@ -79,6 +81,30 @@ const Landing = () => {
   }, [isAddConnection]);
 
   const { addonPlansByService } = useAddonPlans();
+
+  // Fetch broadband plans for the selected ISP/area so the checkout can offer plan switching.
+  const [ispBroadbandPlans, setIspBroadbandPlans] = React.useState<BroadbandPlan[]>([]);
+  React.useEffect(() => {
+    const ispId = selectedISP?.id;
+    if (!ispId || !areaId) { setIspBroadbandPlans([]); return; }
+    (supabase as any)
+      .from("isp_area_plans")
+      .select("broadband_plans!inner(id, name, speed, price, base_price, is_active)")
+      .eq("isp_id", ispId)
+      .eq("area_id", areaId)
+      .then(({ data }: any) => {
+        const plans: BroadbandPlan[] = (data || [])
+          .map((r: any) => r.broadband_plans)
+          .filter((p: any) => p?.is_active !== false)
+          .map((p: any) => ({
+            id: p.id,
+            name: p.name || p.speed,
+            speed: p.speed,
+            price: Number(p.price ?? p.base_price ?? 0),
+          }));
+        setIspBroadbandPlans(plans);
+      });
+  }, [selectedISP?.id, areaId]);
 
   // Pre-compute addon total so ISPComparison can show a live cost summary per offer.
   const addonTotal = React.useMemo(() => {
@@ -218,6 +244,16 @@ const Landing = () => {
               pricingBreakdown={pricingBreakdown}
               onBack={() => setStep(4)}
               onPaymentSuccess={handlers.handlePaymentComplete}
+              addonPlansByService={addonPlansByService}
+              selectedAddonPlans={selectedAddonPlans}
+              onSelectAddonPlan={(serviceId, planId) =>
+                setSelectedAddonPlans({ ...selectedAddonPlans, [serviceId]: planId })
+              }
+              broadbandPlans={ispBroadbandPlans}
+              selectedBroadbandPlanId={selectedOffer?.id ?? null}
+              onSelectBroadbandPlan={(planId, price, speed) =>
+                setSelectedOffer((prev: any) => ({ ...prev, id: planId, price, speed }))
+              }
             />
           )}
 
