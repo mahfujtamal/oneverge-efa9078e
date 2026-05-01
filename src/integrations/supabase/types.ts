@@ -16,85 +16,78 @@ export type Database = {
     Tables: {
       addon_plans: {
         Row: {
+          addon_id: string
           base_price: number
           created_at: string
           effective_from: string
           id: string
           is_active: boolean
           name: string
-          price: number
-          service_id: string
+          price: number | null
           surplus_charge: number
           tax: number
           updated_at: string
           vat: number
         }
         Insert: {
+          addon_id: string
           base_price?: number
           created_at?: string
           effective_from?: string
           id?: string
           is_active?: boolean
           name: string
-          price: number
-          service_id: string
+          price?: number | null
           surplus_charge?: number
           tax?: number
           updated_at?: string
           vat?: number
         }
         Update: {
+          addon_id?: string
           base_price?: number
           created_at?: string
           effective_from?: string
           id?: string
           is_active?: boolean
           name?: string
-          price?: number
-          service_id?: string
+          price?: number | null
           surplus_charge?: number
           tax?: number
           updated_at?: string
           vat?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_addon_plans_addon"
+            columns: ["addon_id"]
+            isOneToOne: false
+            referencedRelation: "addons"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       addons: {
         Row: {
-          base_price: number
           effective_from: string | null
           effective_to: string | null
           id: string
           is_active: boolean | null
           name: string
-          price: number | null
-          surplus_charge: number | null
-          tax: number | null
-          vat: number | null
         }
         Insert: {
-          base_price: number
           effective_from?: string | null
           effective_to?: string | null
           id: string
           is_active?: boolean | null
           name: string
-          price?: number | null
-          surplus_charge?: number | null
-          tax?: number | null
-          vat?: number | null
         }
         Update: {
-          base_price?: number
           effective_from?: string | null
           effective_to?: string | null
           id?: string
           is_active?: boolean | null
           name?: string
-          price?: number | null
-          surplus_charge?: number | null
-          tax?: number | null
-          vat?: number | null
         }
         Relationships: []
       }
