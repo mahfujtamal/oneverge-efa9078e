@@ -1,0 +1,1 @@
+COMMENT ON COLUMN public.addon_plans.addon_id IS 'FK-like reference to addons.id (text)';
