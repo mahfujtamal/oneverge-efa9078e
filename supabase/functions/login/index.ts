@@ -35,11 +35,12 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Lookup customer by email / user_id / phone (with location join)
+    // 1. Lookup customer identity only (no location or service columns —
+    //    those live in customer_connections after the identity migration).
     const id = identifier.trim();
     const { data: customer, error: lookupErr } = await supabase
       .from("customers")
-      .select(`*, areas ( name, districts ( name ) )`)
+      .select("id, user_id, auth_user_id, display_name, phone_number, email, nid, dob, created_at")
       .or(`email.eq.${id},user_id.eq.${id},phone_number.eq.${id}`)
       .maybeSingle();
 
@@ -58,7 +59,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Verify password using bcrypt DB function
+    // 2. Verify password using bcrypt DB function
     const { data: verified, error: verifyErr } = await supabase.rpc("verify_customer_password", {
       _customer_id: customer.id,
       _password: password,
@@ -87,9 +88,21 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Resolve ISP — prefer the customer's stored isp_id; fall back to area coverage
+    // 3. Fetch the primary connection (is_primary first, then earliest created).
+    //    This drives routing — even if a secondary connection is active,
+    //    the customer always sees the primary connection's context first.
+    const { data: connection } = await supabase
+      .from("customer_connections")
+      .select("*, areas ( name, districts ( name ) )")
+      .eq("customer_id", customer.id)
+      .order("is_primary", { ascending: false })
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    // 4. Resolve ISP name from the primary connection's isp_id
     let resolvedIspName = "OneVerge Global";
-    let resolvedIspId: string | null = (customer as any).isp_id || null;
+    let resolvedIspId: string | null = connection?.isp_id || null;
 
     if (resolvedIspId) {
       const { data: ispRow } = await supabase
@@ -98,37 +111,61 @@ Deno.serve(async (req) => {
         .eq("id", resolvedIspId)
         .maybeSingle();
       if (ispRow?.name) resolvedIspName = ispRow.name;
-    } else if (customer.area_id) {
+    } else if (connection?.area_id) {
       const { data: ispData } = await supabase
         .from("isp_coverage")
         .select("isp_id, isps(name)")
-        .eq("area_id", customer.area_id)
+        .eq("area_id", connection.area_id)
         .limit(1)
         .maybeSingle();
-
       if (ispData) {
         // @ts-ignore
         resolvedIspName = ispData.isps?.name || "OneVerge Global";
         resolvedIspId = ispData.isp_id || null;
-
-        // Backfill the customer record so next login is deterministic
-        if (resolvedIspId) {
-          await supabase
-            .from("customers")
-            .update({ isp_id: resolvedIspId })
-            .eq("id", customer.id);
-          (customer as any).isp_id = resolvedIspId;
-        }
       }
     }
 
-    // Strip sensitive fields from response
-    const { password: _pw, password_hash: _ph, ...safeCustomer } = customer as any;
+    // 5. Derive location string from the connection's area join
+    const areaName = (connection?.areas as any)?.name || "";
+    const districtName = (connection?.areas as any)?.districts?.name || "";
+    const locationStr =
+      districtName && areaName
+        ? `${districtName} - ${areaName}`
+        : areaName || districtName || "";
+
+    // 6. Build a flat merged user object that preserves the shape the frontend
+    //    expects: user.account_status, user.balance, user.isp_id, etc.
+    const { areas: _areas, ...safeConn } = (connection || {}) as any;
+    const mergedUser = {
+      ...customer,
+      // Connection fields projected flat so frontend needs no changes
+      connection_id: connection?.id || null,
+      connection_label: connection?.connection_label || null,
+      isp_id: resolvedIspId,
+      area_id: connection?.area_id || null,
+      address: connection?.address || null,
+      broadband_plan_id: connection?.broadband_plan_id || null,
+      scheduled_broadband_plan_id: connection?.scheduled_broadband_plan_id || null,
+      speed: connection?.speed || null,
+      account_status: connection?.account_status || "account created",
+      balance: connection?.balance ?? 0,
+      active_services: connection?.active_services || [],
+      scheduled_services: connection?.scheduled_services || [],
+      active_addon_plans: connection?.active_addon_plans || {},
+      scheduled_addon_plans: connection?.scheduled_addon_plans || {},
+      is_primary: connection?.is_primary ?? true,
+      // Use connection created_at for billing cycle anchor
+      created_at: connection?.created_at || customer.created_at,
+      // Derived
+      ispName: resolvedIspName,
+      ispId: resolvedIspId,
+      location: locationStr,
+    };
 
     return new Response(
       JSON.stringify({
         ok: true,
-        user: safeCustomer,
+        user: mergedUser,
         ispName: resolvedIspName,
         ispId: resolvedIspId,
       }),
