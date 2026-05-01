@@ -111,28 +111,34 @@ const Login = () => {
         dbFallbackStep = 7;
       }
 
-      localStorage.setItem("oneverge_session", JSON.stringify(enrichedSession));
-      localStorage.setItem("oneverge_user", JSON.stringify(enrichedSession));
-      localStorage.setItem(
-        "oneverge_onboarding_state",
-        JSON.stringify({
-          ...existingState,
-          userData: enrichedSession,
-          selectedISP: restoredISP,
-          selectedOffer: restoredOffer,
-          location: restoredLocation,
-          active: restoredActive,
-          step: normalizeOnboardingStep(savedStep ?? dbFallbackStep),
-        }),
-      );
-      localStorage.removeItem("oneverge_last_step");
-
-      if (
+      const shouldOpenDashboard =
         user.account_status === "activation payment done" ||
         user.account_status === "active" ||
         user.account_status === "expired" ||
-        user.account_status === "terminated"
-      ) {
+        user.account_status === "terminated";
+
+      localStorage.setItem("oneverge_session", JSON.stringify(enrichedSession));
+      localStorage.setItem("oneverge_user", JSON.stringify(enrichedSession));
+
+      if (shouldOpenDashboard) {
+        localStorage.removeItem("oneverge_onboarding_state");
+      } else {
+        localStorage.setItem(
+          "oneverge_onboarding_state",
+          JSON.stringify({
+            ...existingState,
+            userData: enrichedSession,
+            selectedISP: restoredISP,
+            selectedOffer: restoredOffer,
+            location: restoredLocation,
+            active: restoredActive,
+            step: normalizeOnboardingStep(savedStep ?? dbFallbackStep),
+          }),
+        );
+      }
+      localStorage.removeItem("oneverge_last_step");
+
+      if (shouldOpenDashboard) {
         navigate("/dashboard");
       } else {
         navigate("/");
