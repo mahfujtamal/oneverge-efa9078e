@@ -181,6 +181,11 @@ const PaymentGateway = ({
     if (userId) {
       try {
         // Insert SERVICE row (status pending → flipped to success by finalisePayment).
+        // Resolve the plan the customer actually confirmed (may differ from selectedOffer
+        // if they changed the plan at checkout).
+        const activePlan =
+          broadbandPlans?.find((p) => p.id === selectedBroadbandPlanId) ?? selectedOffer;
+        const activeServices = Object.keys(activeAddons).filter((id) => activeAddons[id]);
         const { error: svcErr } = await (supabase as any).from("payments").insert({
           customer_id: userId,
           transaction_id: serviceTxn,
@@ -189,8 +194,10 @@ const PaymentGateway = ({
           payment_type: paymentType,
           status: "pending",
           metadata: metadata || {
-            plan_name: selectedOffer?.name || "Custom",
-            speed: selectedOffer?.speed || "N/A",
+            plan_name: activePlan?.name || "Custom",
+            speed: activePlan?.speed || "N/A",
+            services: activeServices,
+            addon_plans: selectedAddonPlans || {},
           },
         });
         if (svcErr) throw svcErr;

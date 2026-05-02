@@ -111,13 +111,33 @@ const Index = () => {
 
     (async () => {
       try {
-        const { data: conn } = await (supabase as any)
-          .from("customer_connections")
-          .select("id, account_status, isp_id, broadband_plan_id, scheduled_services")
-          .eq("customer_id", userId)
-          .order("is_primary", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+        const isAddingConnection = !!routerState?.addConnection;
+        let conn: any = null;
+
+        if (isAddingConnection) {
+          // New (non-primary) connection in progress — most recent one.
+          const { data } = await (supabase as any)
+            .from("customer_connections")
+            .select("id, account_status, isp_id, broadband_plan_id, scheduled_services")
+            .eq("customer_id", userId)
+            .eq("is_primary", false)
+            .in("account_status", ["account created", "feasibility done"])
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          conn = data;
+        } else {
+          // Normal re-login — primary connection only.
+          const { data } = await (supabase as any)
+            .from("customer_connections")
+            .select("id, account_status, isp_id, broadband_plan_id, scheduled_services")
+            .eq("customer_id", userId)
+            .eq("is_primary", true)
+            .order("is_primary", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          conn = data;
+        }
 
         if (!conn) return;
 
@@ -145,6 +165,35 @@ const Index = () => {
               });
             }
           }
+
+          // Fetch all active broadband plans for this ISP so the picker is
+          // populated before step 7 renders — no timing gap, no extra round-trip.
+          let plans: Array<{ id: string; name: string; speed: string; price: number }> = [];
+          if (conn.isp_id) {
+            const { data: planList } = await (supabase as any)
+              .from("broadband_plans")
+              .select("id, name, speed, price, base_price")
+              .eq("isp_id", conn.isp_id)
+              .eq("is_active", true);
+            plans = (planList || []).map((p: any) => ({
+              id: p.id,
+              name: p.name || p.speed,
+              speed: p.speed,
+              price: Number(p.price ?? p.base_price ?? 0),
+            }));
+          }
+          // Fallback: ISP query empty → fetch the single assigned plan by ID.
+          if (plans.length === 0 && conn.broadband_plan_id) {
+            const { data: fp } = await (supabase as any)
+              .from("broadband_plans")
+              .select("id, name, speed, price, base_price")
+              .eq("id", conn.broadband_plan_id)
+              .maybeSingle();
+            if (fp) {
+              plans = [{ id: fp.id, name: fp.name || fp.speed, speed: fp.speed, price: Number(fp.price ?? fp.base_price ?? 0) }];
+            }
+          }
+          if (plans.length > 0) setBroadbandPlans(plans);
 
           const services: string[] = conn.scheduled_services || [];
           setActive(
