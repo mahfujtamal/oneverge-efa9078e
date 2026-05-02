@@ -105,8 +105,9 @@ export function useOnboardingState(routerState: unknown) {
       try {
         const { data: conn } = await (supabase as any)
           .from("customer_connections")
-          .select("id, account_status, isp_id, broadband_plan_id, scheduled_services")
+          .select("id, account_status, isp_id, broadband_plan_id, scheduled_services, area_id")
           .eq("customer_id", userId)
+          .eq("is_primary", true)
           .order("is_primary", { ascending: false })
           .limit(1)
           .maybeSingle();
@@ -122,6 +123,7 @@ export function useOnboardingState(routerState: unknown) {
           setConnectionId(conn.id);
           setLocation(storedSession.location || storedSession.address || "");
 
+          if (conn.area_id) setAreaId(conn.area_id);
           if (conn.isp_id) setSelectedISP({ id: conn.isp_id, name: storedSession.ispName || "" });
 
           if (conn.broadband_plan_id) {

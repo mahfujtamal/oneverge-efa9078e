@@ -99,29 +99,37 @@ const Landing = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, addonPlansByService]);
 
-  // Fetch broadband plans for the selected ISP/area so the checkout can offer plan switching.
+  // Fetch broadband plans for the selected ISP so the checkout can offer plan switching.
+  // Queries broadband_plans directly by isp_id — no isp_area_plans join, no areaId needed.
   const [ispBroadbandPlans, setIspBroadbandPlans] = React.useState<BroadbandPlan[]>([]);
   React.useEffect(() => {
     const ispId = selectedISP?.id;
-    if (!ispId || !areaId) { setIspBroadbandPlans([]); return; }
-    (supabase as any)
-      .from("isp_area_plans")
-      .select("broadband_plans!inner(id, name, speed, price, base_price, is_active)")
-      .eq("isp_id", ispId)
-      .eq("area_id", areaId)
-      .then(({ data }: any) => {
-        const plans: BroadbandPlan[] = (data || [])
-          .map((r: any) => r.broadband_plans)
-          .filter((p: any) => p?.is_active !== false)
-          .map((p: any) => ({
-            id: p.id,
-            name: p.name || p.speed,
-            speed: p.speed,
-            price: Number(p.price ?? p.base_price ?? 0),
-          }));
+    if (!ispId) { setIspBroadbandPlans([]); return; }
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("broadband_plans")
+        .select("id, name, speed, price, base_price")
+        .eq("isp_id", ispId)
+        .eq("is_active", true);
+      const plans: BroadbandPlan[] = (data || []).map((p: any) => ({
+        id: p.id,
+        name: p.name || p.speed,
+        speed: p.speed,
+        price: Number(p.price ?? p.base_price ?? 0),
+      }));
+      // Fallback: ISP query empty → use selectedOffer so picker always shows at least one plan.
+      if (plans.length === 0 && selectedOffer?.id) {
+        setIspBroadbandPlans([{
+          id: selectedOffer.id,
+          name: selectedOffer.name || selectedOffer.speed || "Current Plan",
+          speed: selectedOffer.speed || "",
+          price: selectedOffer.price ?? 0,
+        }]);
+      } else {
         setIspBroadbandPlans(plans);
-      });
-  }, [selectedISP?.id, areaId]);
+      }
+    })();
+  }, [selectedISP?.id]);
 
   // Pre-compute addon total so ISPComparison can show a live cost summary per offer.
   const addonTotal = React.useMemo(() => {
