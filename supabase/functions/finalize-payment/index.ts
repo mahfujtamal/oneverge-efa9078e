@@ -117,7 +117,13 @@ Deno.serve(async (req) => {
 
     const cycleServices =
       body.scheduledServices.length > 0 ? body.scheduledServices : ["broadband"];
-    const cycleCost = computeCycleCost(cycleServices, body.basePrice, body.addonRates || {});
+    // For activation the customer pays exactly the service cycle cost (fresh account,
+    // no prior balance). Use amountPaid directly so billing_history reflects the real
+    // charge instead of a rate-table estimate that can diverge from DB addon prices.
+    const cycleCost =
+      body.context === "activation"
+        ? Number(body.amountPaid)
+        : computeCycleCost(cycleServices, body.basePrice, body.addonRates || {});
 
     const shouldConsumeCycle =
       body.context === "activation" ||

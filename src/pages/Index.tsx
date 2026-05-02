@@ -289,25 +289,31 @@ const Index = () => {
           }
         }
 
-        // 2) Add-on splits
+        // 2) Add-on splits — addons table is now a pure catalog (no price columns).
+        // Fetch pricing from addon_plans; pick the most recent active plan per addon.
         if (activeAddonIds.length > 0) {
-          const { data: addons } = await (supabase as any)
-            .from("addons")
-            .select("id, name, base_price, vat, tax, surplus_charge, price")
-            .in("id", activeAddonIds);
-          (addons || []).forEach((a: any) => {
-            const base = Number(a.base_price) || 0;
-            const vat = Number(a.vat) || 0;
-            const tax = Number(a.tax) || 0;
-            const surcharge = Number(a.surplus_charge) || 0;
+          const { data: addonPlansData } = await (supabase as any)
+            .from("addon_plans")
+            .select("addon_id, name, base_price, vat, tax, surplus_charge, price")
+            .in("addon_id", activeAddonIds)
+            .eq("is_active", true)
+            .order("effective_from", { ascending: false });
+          const seenAddonIds = new Set<string>();
+          (addonPlansData || []).forEach((plan: any) => {
+            if (seenAddonIds.has(plan.addon_id)) return;
+            seenAddonIds.add(plan.addon_id);
+            const base = Number(plan.base_price) || 0;
+            const vat = Number(plan.vat) || 0;
+            const tax = Number(plan.tax) || 0;
+            const surcharge = Number(plan.surplus_charge) || 0;
             items.push({
-              id: a.id,
-              label: a.name,
+              id: plan.addon_id,
+              label: plan.name,
               base,
               vat,
               tax,
               surcharge,
-              total: Number(a.price) || base + vat + tax + surcharge,
+              total: Number(plan.price) || base + vat + tax + surcharge,
             });
           });
         }
