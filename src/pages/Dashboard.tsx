@@ -67,6 +67,8 @@ const Dashboard = () => {
     );
   }
 
+  const ACTIVATED = new Set(["active", "expired", "terminated"]);
+  const isActivated = ACTIVATED.has(String(sessionData?.account_status || "").toLowerCase());
   const connections: any[] = sessionData.connections || [];
 
   return (
@@ -204,7 +206,14 @@ const Dashboard = () => {
 
           {/* FINANCIAL BRIDGE */}
           <div className="flex flex-col gap-4">
-            <div className="ov-balance-widget" onClick={() => navigate("/billing", { state: sessionData })}>
+            <div
+              className="ov-balance-widget"
+              onClick={() =>
+                isActivated
+                  ? navigate("/billing", { state: sessionData })
+                  : navigate("/", { state: { addConnection: true } })
+              }
+            >
               <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-12 -mt-12" />
               <p className="ov-balance-label">Balance</p>
               <div className="text-left">
@@ -213,7 +222,11 @@ const Dashboard = () => {
                   {Number(sessionData.balance !== undefined ? sessionData.balance : "0.00").toFixed(2)}
                 </p>
               </div>
-              {connections.length > 1 && (
+              {!isActivated ? (
+                <p className="text-[8px] font-black uppercase tracking-widest text-yellow-400 mt-1">
+                  Pending Activation
+                </p>
+              ) : connections.length > 1 && (
                 <p className="text-[8px] font-black uppercase tracking-widest text-gray-500 mt-1">
                   {sessionData.connection_label}
                 </p>

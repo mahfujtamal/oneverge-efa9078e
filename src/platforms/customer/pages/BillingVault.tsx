@@ -27,8 +27,14 @@ const BillingVault = () => {
   const { addonPlansByService } = useAddonPlans();
   const schedule = useScheduleConfig(sessionData, setSessionData, addonPlansByService);
 
+  const ACTIVATED = new Set(["active", "expired", "terminated"]);
+
   useEffect(() => {
-    if (!sessionData) navigate("/login", { replace: true });
+    if (!sessionData) { navigate("/login", { replace: true }); return; }
+    const status = String(sessionData?.account_status || "").toLowerCase();
+    if (!ACTIVATED.has(status)) {
+      navigate("/", { replace: true, state: { addConnection: true } });
+    }
   }, [sessionData, navigate]);
 
   if (!sessionData) return null;
@@ -70,6 +76,9 @@ const BillingVault = () => {
               netPayable={schedule.netPayable}
               formattedRenewalDate={formattedRenewalDate}
               surplusCarryover={schedule.surplusCarryover}
+              onSave={schedule.handleSaveSchedule}
+              isSaving={schedule.isSaving}
+              showSuccess={schedule.showSuccess}
             />
 
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
@@ -92,9 +101,6 @@ const BillingVault = () => {
             nextCycleAddons={schedule.nextCycleAddons}
             setNextCycleAddons={schedule.setNextCycleAddons}
             broadbandPrice={schedule.broadbandPrice}
-            isSaving={schedule.isSaving}
-            showSuccess={schedule.showSuccess}
-            onSave={schedule.handleSaveSchedule}
             availablePlans={schedule.availablePlans}
             scheduledPlanId={schedule.scheduledPlanId}
             currentSpeed={sessionData?.speed || ""}

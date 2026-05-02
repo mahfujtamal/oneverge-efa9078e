@@ -52,6 +52,8 @@ const Index = () => {
   const [checkoutBroadbandPlanId, setCheckoutBroadbandPlanId] = useState<string | null>(null);
   const [checkoutBasePrice, setCheckoutBasePrice] = useState<number | null>(null);
   const [checkoutSpeed, setCheckoutSpeed] = useState<string | null>(null);
+  // Addon plan IDs resolved from DB at step 7 (addon_id → addon_plan_id)
+  const [checkoutAddonPlanIds, setCheckoutAddonPlanIds] = useState<Record<string, string>>({});
   const [broadbandPlans, setBroadbandPlans] = useState<
     Array<{ id: string; name: string; speed: string; price: number }>
   >([]);
@@ -85,6 +87,10 @@ const Index = () => {
     special: /[^A-Za-z0-9]/.test(pw),
   };
   const pwValid = Object.values(pwChecks).every(Boolean);
+
+  // When an existing customer adds a connection, their identity is pre-filled and locked.
+  // userData.id is only set after session pre-population or DB restoration.
+  const isKYCReadonly = !!(routerState?.addConnection && userData.id);
 
   // --- TERMINATION & RESET PROTOCOL ---
   useEffect(() => {
@@ -137,7 +143,27 @@ const Index = () => {
           conn = data;
         }
 
-        if (!conn) return;
+        if (!conn) {
+          // No in-progress connection found. In addConnection mode, pre-fill
+          // identity from the existing session so KYC fields can be readonly.
+          if (isAddingConnection) {
+            try {
+              const saved = JSON.parse(localStorage.getItem("oneverge_session") || "{}");
+              if (saved?.id) {
+                setUserData((prev: any) => ({
+                  ...prev,
+                  id: saved.id,
+                  name: saved.display_name || "",
+                  phone: saved.phone_number || "",
+                  email: saved.email || "",
+                  nid: saved.nid || "",
+                  dob: saved.dob || "",
+                }));
+              }
+            } catch { /* ignore */ }
+          }
+          return;
+        }
 
         // Fetch customer profile and ISP name in parallel — no session spread.
         const [custResult, ispResult] = await Promise.all([
@@ -294,14 +320,17 @@ const Index = () => {
         if (activeAddonIds.length > 0) {
           const { data: addonPlansData } = await (supabase as any)
             .from("addon_plans")
-            .select("addon_id, name, base_price, vat, tax, surplus_charge, price")
+            .select("id, addon_id, name, base_price, vat, tax, surplus_charge, price")
             .in("addon_id", activeAddonIds)
             .eq("is_active", true)
             .order("effective_from", { ascending: false });
           const seenAddonIds = new Set<string>();
+          const addonPlanMap: Record<string, string> = {};
           (addonPlansData || []).forEach((plan: any) => {
             if (seenAddonIds.has(plan.addon_id)) return;
             seenAddonIds.add(plan.addon_id);
+            // Capture the resolved plan ID for use in finalisePayment
+            addonPlanMap[plan.addon_id] = plan.id;
             const base = Number(plan.base_price) || 0;
             const vat = Number(plan.vat) || 0;
             const tax = Number(plan.tax) || 0;
@@ -316,6 +345,7 @@ const Index = () => {
               total: Number(plan.price) || base + vat + tax + surcharge,
             });
           });
+          setCheckoutAddonPlanIds(addonPlanMap);
         }
 
         // 3) Installation fee split (ISP-specific or global default)
@@ -459,9 +489,32 @@ const Index = () => {
 
     if (userData?.id) {
       try {
+        // Fetch the default (most recent active) plan ID for each active addon
+        const activeAddonIds = Object.keys(active).filter((id) => active[id] && id !== "broadband");
+        let defaultAddonPlans: Record<string, string> = {};
+        if (activeAddonIds.length > 0) {
+          const { data: addonRows } = await (supabase as any)
+            .from("addon_plans")
+            .select("id, addon_id")
+            .in("addon_id", activeAddonIds)
+            .eq("is_active", true)
+            .order("effective_from", { ascending: false });
+          const seen = new Set<string>();
+          (addonRows || []).forEach((p: any) => {
+            if (!seen.has(p.addon_id)) {
+              seen.add(p.addon_id);
+              defaultAddonPlans[p.addon_id] = p.id;
+            }
+          });
+        }
+
         const { error } = await (supabase as any)
           .from("customer_connections")
-          .update({ account_status: "feasibility done" })
+          .update({
+            account_status: "feasibility done",
+            scheduled_broadband_plan_id: selectedOffer?.id || checkoutBroadbandPlanId || null,
+            scheduled_addon_plans: defaultAddonPlans,
+          })
           .eq("id", userData.connection_id);
 
         if (error) throw error;
@@ -537,6 +590,7 @@ const Index = () => {
           scheduledBroadbandPlanId: effectivePlanId,
           speed: effectiveSpeed,
           addonRates,
+          scheduledAddonPlans: checkoutAddonPlanIds,
         });
 
         // Refresh local userData with the post-activation state from the connection row
@@ -730,88 +784,94 @@ const Index = () => {
                   {/* Name */}
                   <div className="space-y-2">
                     <input
-                      className="bg-black/40 p-4 w-full rounded-xl border border-white/10 text-white uppercase text-[11px] font-bold outline-none focus:border-ov-primary transition-all"
+                      className={`bg-black/40 p-4 w-full rounded-xl border border-white/10 text-white uppercase text-[11px] font-bold outline-none focus:border-ov-primary transition-all${isKYCReadonly ? " opacity-60 cursor-not-allowed" : ""}`}
                       placeholder="Full Name"
                       value={userData.name}
-                      onChange={(e) => setUserData({ ...userData, name: e.target.value })}
+                      readOnly={isKYCReadonly}
+                      onChange={(e) => !isKYCReadonly && setUserData({ ...userData, name: e.target.value })}
                     />
                   </div>
 
                   {/* Phone */}
                   <div className="space-y-2">
                     <input
-                      className="bg-black/40 p-4 w-full rounded-xl border border-white/10 text-white uppercase text-[11px] font-bold outline-none focus:border-ov-primary transition-all"
+                      className={`bg-black/40 p-4 w-full rounded-xl border border-white/10 text-white uppercase text-[11px] font-bold outline-none focus:border-ov-primary transition-all${isKYCReadonly ? " opacity-60 cursor-not-allowed" : ""}`}
                       placeholder="Mobile Number"
                       value={userData.phone}
-                      onChange={(e) => setUserData({ ...userData, phone: e.target.value })}
+                      readOnly={isKYCReadonly}
+                      onChange={(e) => !isKYCReadonly && setUserData({ ...userData, phone: e.target.value })}
                     />
                   </div>
 
                   {/* Email */}
                   <div className="space-y-2 sm:col-span-1">
                     <input
-                      className="bg-black/40 p-4 w-full rounded-xl border border-white/10 text-white lowercase text-[11px] font-bold outline-none focus:border-ov-primary transition-all"
+                      className={`bg-black/40 p-4 w-full rounded-xl border border-white/10 text-white lowercase text-[11px] font-bold outline-none focus:border-ov-primary transition-all${isKYCReadonly ? " opacity-60 cursor-not-allowed" : ""}`}
                       placeholder="node@oneverge.com"
                       type="email"
                       value={userData.email}
-                      onChange={(e) => setUserData({ ...userData, email: e.target.value })}
+                      readOnly={isKYCReadonly}
+                      onChange={(e) => !isKYCReadonly && setUserData({ ...userData, email: e.target.value })}
                     />
                   </div>
 
-                  {/* PASSWORD */}
-                  <div className="space-y-2 sm:col-span-1 relative">
-                    <div className="relative">
-                      <input
-                        className="bg-black/40 p-4 pr-12 w-full rounded-xl border border-white/10 text-white text-[11px] font-bold outline-none focus:border-ov-primary transition-all"
-                        placeholder="Create Password"
-                        type={showPassword ? "text" : "password"}
-                        value={userData.password}
-                        onChange={(e) => setUserData({ ...userData, password: e.target.value })}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword((s) => !s)}
-                        aria-label={showPassword ? "Hide password" : "Show password"}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition"
-                        tabIndex={-1}
-                      >
-                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </button>
-                    </div>
-
-                    {/* INLINE POLICY CHECKLIST — visible while typing, hides once valid */}
-                    {pw.length > 0 && !pwValid && (
-                      <div className="bg-black/60 border border-white/10 p-3 rounded-lg space-y-1">
-                        <p className="text-[10px] text-gray-400 font-bold mb-1 uppercase tracking-wider">
-                          Password Policy
-                        </p>
-                        {[
-                          { ok: pwChecks.length, label: "Minimum 13 characters" },
-                          { ok: pwChecks.upper, label: "One uppercase letter (A-Z)" },
-                          { ok: pwChecks.lower, label: "One lowercase letter (a-z)" },
-                          { ok: pwChecks.digit, label: "One digit (0-9)" },
-                          { ok: pwChecks.special, label: "One special character" },
-                        ].map((c) => (
-                          <div key={c.label} className="flex items-center gap-2 text-[10px]">
-                            {c.ok ? (
-                              <Check size={12} className="text-green-400 shrink-0" />
-                            ) : (
-                              <X size={12} className="text-red-400 shrink-0" />
-                            )}
-                            <span className={c.ok ? "text-green-300" : "text-gray-400"}>{c.label}</span>
-                          </div>
-                        ))}
+                  {/* PASSWORD — hidden when adding a connection (existing account already has one) */}
+                  {!isKYCReadonly && (
+                    <div className="space-y-2 sm:col-span-1 relative">
+                      <div className="relative">
+                        <input
+                          className="bg-black/40 p-4 pr-12 w-full rounded-xl border border-white/10 text-white text-[11px] font-bold outline-none focus:border-ov-primary transition-all"
+                          placeholder="Create Password"
+                          type={showPassword ? "text" : "password"}
+                          value={userData.password}
+                          onChange={(e) => setUserData({ ...userData, password: e.target.value })}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((s) => !s)}
+                          aria-label={showPassword ? "Hide password" : "Show password"}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition"
+                          tabIndex={-1}
+                        >
+                          {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
                       </div>
-                    )}
-                  </div>
+
+                      {/* INLINE POLICY CHECKLIST — visible while typing, hides once valid */}
+                      {pw.length > 0 && !pwValid && (
+                        <div className="bg-black/60 border border-white/10 p-3 rounded-lg space-y-1">
+                          <p className="text-[10px] text-gray-400 font-bold mb-1 uppercase tracking-wider">
+                            Password Policy
+                          </p>
+                          {[
+                            { ok: pwChecks.length, label: "Minimum 13 characters" },
+                            { ok: pwChecks.upper, label: "One uppercase letter (A-Z)" },
+                            { ok: pwChecks.lower, label: "One lowercase letter (a-z)" },
+                            { ok: pwChecks.digit, label: "One digit (0-9)" },
+                            { ok: pwChecks.special, label: "One special character" },
+                          ].map((c) => (
+                            <div key={c.label} className="flex items-center gap-2 text-[10px]">
+                              {c.ok ? (
+                                <Check size={12} className="text-green-400 shrink-0" />
+                              ) : (
+                                <X size={12} className="text-red-400 shrink-0" />
+                              )}
+                              <span className={c.ok ? "text-green-300" : "text-gray-400"}>{c.label}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* NID */}
                   <div className="space-y-2">
                     <input
-                      className="bg-black/40 p-4 w-full rounded-xl border border-white/10 text-white uppercase text-[11px] font-bold outline-none focus:border-ov-primary transition-all"
+                      className={`bg-black/40 p-4 w-full rounded-xl border border-white/10 text-white uppercase text-[11px] font-bold outline-none focus:border-ov-primary transition-all${isKYCReadonly ? " opacity-60 cursor-not-allowed" : ""}`}
                       placeholder="NID"
                       value={userData.nid}
-                      onChange={(e) => setUserData({ ...userData, nid: e.target.value })}
+                      readOnly={isKYCReadonly}
+                      onChange={(e) => !isKYCReadonly && setUserData({ ...userData, nid: e.target.value })}
                     />
                   </div>
 
@@ -822,9 +882,11 @@ const Index = () => {
                         <PopoverTrigger asChild>
                           <Button
                             variant={"outline"}
+                            disabled={isKYCReadonly}
                             className={cn(
                               "bg-black/40 p-4 w-full h-[54px] rounded-xl border border-white/10 text-white outline-none focus:border-ov-primary hover:bg-black/60 hover:text-white transition-all font-bold text-[11px] uppercase justify-start text-left font-normal",
                               !userData.dob && "text-gray-500",
+                              isKYCReadonly && "opacity-60 cursor-not-allowed",
                             )}
                           >
                             <CalendarIcon className="mr-3 h-4 w-4 shrink-0" />
@@ -870,32 +932,29 @@ const Index = () => {
                 <Button
                   onClick={() => {
                     // 1. Validate that the mandatory KYC fields are not empty
-                    if (
-                      !userData.name ||
-                      !userData.phone ||
-                      !userData.dob ||
-                      !userData.nid ||
-                      !userData.password ||
-                      !userData.email ||
-                      !userData.address
-                    ) {
+                    const requiredFields = isKYCReadonly
+                      ? [userData.name, userData.phone, userData.dob, userData.nid, userData.email, userData.address]
+                      : [userData.name, userData.phone, userData.dob, userData.nid, userData.password, userData.email, userData.address];
+                    if (requiredFields.some((f) => !f)) {
                       toast.error("Please complete all required fields to verify your identity.");
                       return;
                     }
 
-                    // 2. Enforce password policy before any DB write
-                    const pwResult = validatePassword(userData.password);
-                    if (!pwResult.isValid) {
-                      toast.error("Password does not meet security policy", {
-                        description: pwResult.errors[0],
-                      });
-                      return;
+                    // 2. Enforce password policy before any DB write (skipped for existing customers)
+                    if (!isKYCReadonly) {
+                      const pwResult = validatePassword(userData.password);
+                      if (!pwResult.isValid) {
+                        toast.error("Password does not meet security policy", {
+                          description: pwResult.errors[0],
+                        });
+                        return;
+                      }
                     }
 
                     // 3. Execute the database insertion, update the account_status, and advance to Step 5
                     handleKYCSubmit();
                   }}
-                  disabled={isVerifying || (!!userData.password && !pwValid)}
+                  disabled={isVerifying || (!isKYCReadonly && !!userData.password && !pwValid)}
                   className="ov-btn-primary w-full !h-14 shadow-ov-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isVerifying ? (

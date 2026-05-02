@@ -25,6 +25,9 @@ function mergeConnection(customer: any, connection: any): any {
     scheduled_addon_plans: connection.scheduled_addon_plans,
     // Use connection's created_at for billing cycle calculation
     created_at: connection.created_at,
+    // ISP and location names pre-baked per connection (see refreshFromDb enrichment)
+    ispName: connection.ispName || customer.ispName || "",
+    location: connection.location || customer.location || "",
     // Keep full list for multi-connection UI
     connections: customer.connections,
   };
@@ -64,16 +67,47 @@ export function useCustomerSession(routerState: unknown) {
 
       const allConnections: any[] = connections || [];
 
+      // Batch-fetch ISP names and area+district names for all connections.
+      const ispIds = [...new Set(allConnections.map((c: any) => c.isp_id).filter(Boolean))];
+      const areaIds = [...new Set(allConnections.map((c: any) => c.area_id).filter(Boolean))];
+
+      const [{ data: ispRows }, { data: areaRows }] = await Promise.all([
+        ispIds.length
+          ? (supabase as any).from("isps").select("id, name").in("id", ispIds)
+          : Promise.resolve({ data: [] }),
+        areaIds.length
+          ? (supabase as any).from("areas").select("id, name, districts(name)").in("id", areaIds)
+          : Promise.resolve({ data: [] }),
+      ]);
+
+      const ispMap: Record<string, string> = Object.fromEntries(
+        (ispRows || []).map((r: any) => [r.id, r.name]),
+      );
+      const areaMap: Record<string, { name: string; district: string }> = Object.fromEntries(
+        (areaRows || []).map((r: any) => [r.id, { name: r.name, district: r.districts?.name || "" }]),
+      );
+
+      if (cancelled) return;
+
+      // Enrich each connection with resolved display names.
+      const enrichedConnections = allConnections.map((c: any) => ({
+        ...c,
+        ispName: c.isp_id ? ispMap[c.isp_id] || "" : "",
+        location: c.area_id
+          ? [areaMap[c.area_id]?.name, areaMap[c.area_id]?.district].filter(Boolean).join(", ")
+          : "",
+      }));
+
       // Determine which connection to project: prefer the one already selected,
       // otherwise fall back to the primary, otherwise the first.
       const activeConnId = sessionData.connection_id;
       const activeConn =
-        (activeConnId && allConnections.find((c) => c.id === activeConnId)) ||
-        allConnections.find((c) => c.is_primary) ||
-        allConnections[0] ||
+        (activeConnId && enrichedConnections.find((c) => c.id === activeConnId)) ||
+        enrichedConnections.find((c) => c.is_primary) ||
+        enrichedConnections[0] ||
         null;
 
-      const merged = mergeConnection({ ...customer, connections: allConnections }, activeConn);
+      const merged = mergeConnection({ ...customer, connections: enrichedConnections }, activeConn);
 
       setSessionData((prev: any) => {
         const hasChanged =
@@ -81,7 +115,10 @@ export function useCustomerSession(routerState: unknown) {
           merged.balance !== prev?.balance ||
           merged.account_status !== prev?.account_status ||
           merged.created_at !== prev?.created_at ||
+          merged.ispName !== prev?.ispName ||
+          merged.location !== prev?.location ||
           JSON.stringify(merged.active_services) !== JSON.stringify(prev?.active_services) ||
+          JSON.stringify(merged.scheduled_services) !== JSON.stringify(prev?.scheduled_services) ||
           JSON.stringify(merged.connections) !== JSON.stringify(prev?.connections);
         if (!hasChanged) return prev;
         try {

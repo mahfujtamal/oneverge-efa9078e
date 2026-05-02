@@ -1,7 +1,7 @@
 import React from "react";
-import { Loader2, CheckCircle2, Trash2, Plus } from "lucide-react";
+import { Trash2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ALL_SERVICES, BILLING_LABELS, PRICING_CONFIG } from "@/shared/lib/constants";
+import { ALL_SERVICES, PRICING_CONFIG } from "@/shared/lib/constants";
 import BroadbandPlanPicker from "@/platforms/customer/components/billing/BroadbandPlanPicker";
 import AddonPlanPicker from "@/platforms/customer/components/billing/AddonPlanPicker";
 import type { BroadbandPlan } from "@/platforms/customer/hooks/useScheduleConfig";
@@ -11,9 +11,6 @@ interface NextCycleConfigProps {
   nextCycleAddons: Record<string, boolean>;
   setNextCycleAddons: (fn: (prev: Record<string, boolean>) => Record<string, boolean>) => void;
   broadbandPrice: number;
-  isSaving: boolean;
-  showSuccess: boolean;
-  onSave: () => void;
   availablePlans: BroadbandPlan[];
   scheduledPlanId: string | null;
   currentSpeed: string;
@@ -27,9 +24,6 @@ const NextCycleConfig = ({
   nextCycleAddons,
   setNextCycleAddons,
   broadbandPrice,
-  isSaving,
-  showSuccess,
-  onSave,
   availablePlans,
   scheduledPlanId,
   currentSpeed,
@@ -40,18 +34,6 @@ const NextCycleConfig = ({
 }: NextCycleConfigProps) => (
   <div className="lg:col-span-2 space-y-6 text-left">
     <h3 className="ov-section-label px-2 opacity-50">Next Cycle Config</h3>
-
-    {showSuccess && (
-      <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-300 shadow-[0_0_20px_rgba(16,185,129,0.1)]">
-        <CheckCircle2 size={20} className="text-emerald-400 shrink-0" />
-        <div>
-          <p className="text-[10px] font-black uppercase text-emerald-400 tracking-widest">Schedule Locked</p>
-          <p className="text-[8px] font-bold text-emerald-400/70 uppercase tracking-wider mt-0.5">
-            Configuration successfully saved for your next billing cycle.
-          </p>
-        </div>
-      </div>
-    )}
 
     <BroadbandPlanPicker
       availablePlans={availablePlans}
@@ -121,19 +103,6 @@ const NextCycleConfig = ({
       })}
     </div>
 
-    <Button
-      onClick={onSave}
-      disabled={isSaving}
-      className="ov-btn-primary w-full h-16 !rounded-[24px] mt-4 shadow-ov-primary/20"
-    >
-      {isSaving ? (
-        <span className="flex items-center gap-2">
-          <Loader2 size={18} className="animate-spin" /> SAVING...
-        </span>
-      ) : (
-        BILLING_LABELS.SAVE_SCHEDULE
-      )}
-    </Button>
   </div>
 );
 

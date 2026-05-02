@@ -39,6 +39,11 @@ const SupportCenter = () => {
     navigate("/login", { replace: true });
     return null;
   }
+  const _status = String(sessionData?.account_status || "").toLowerCase();
+  if (!["active", "expired", "terminated"].includes(_status)) {
+    navigate("/dashboard", { replace: true, state: sessionData });
+    return null;
+  }
 
   if (ticketData.isLoading) {
     return (

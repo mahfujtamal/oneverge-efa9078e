@@ -12,10 +12,13 @@ const Sidebar = ({ sessionData }: SidebarProps) => {
   const location = useLocation();
   const navigate = useNavigate();
 
+  const ACTIVATED = new Set(["active", "expired", "terminated"]);
+  const isActivated = ACTIVATED.has(String(sessionData?.account_status || "").toLowerCase());
+
   const menuItems = [
     { label: DASHBOARD_LABELS.NAV.HOME, path: "/dashboard", icon: LayoutDashboard },
     { label: DASHBOARD_LABELS.NAV.BILLING, path: "/billing", icon: CreditCard },
-    { label: DASHBOARD_LABELS.NAV.SUPPORT, path: "/support", icon: LifeBuoy },
+    ...(isActivated ? [{ label: DASHBOARD_LABELS.NAV.SUPPORT, path: "/support", icon: LifeBuoy }] : []),
   ];
 
   /**
@@ -51,10 +54,17 @@ const Sidebar = ({ sessionData }: SidebarProps) => {
         <nav className="flex-1 px-4 space-y-2 mt-4 text-left">
           {menuItems.map((item) => {
             const isActive = location.pathname === item.path;
+            const handleNav = () => {
+              if (item.path === "/billing" && !isActivated) {
+                navigate("/", { state: { addConnection: true } });
+              } else {
+                navigate(item.path, { state: sessionData });
+              }
+            };
             return (
               <button
                 key={item.path}
-                onClick={() => navigate(item.path, { state: sessionData })}
+                onClick={handleNav}
                 className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl transition-all duration-300 group ${
                   isActive
                     ? "bg-ov-primary text-black font-black shadow-[0_0_20px_rgba(34,211,238,0.2)]"
@@ -91,10 +101,17 @@ const Sidebar = ({ sessionData }: SidebarProps) => {
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 h-20 bg-background/80 backdrop-blur-xl border-t border-white/10 px-6 flex items-center justify-between z-[100]">
         {menuItems.map((item) => {
           const isActive = location.pathname === item.path;
+          const handleMobileNav = () => {
+            if (item.path === "/billing" && !isActivated) {
+              navigate("/", { state: { addConnection: true } });
+            } else {
+              navigate(item.path, { state: sessionData });
+            }
+          };
           return (
             <button
               key={item.path}
-              onClick={() => navigate(item.path, { state: sessionData })}
+              onClick={handleMobileNav}
               className={`flex flex-col items-center gap-1 transition-all duration-300 ${
                 isActive ? "text-ov-primary scale-110" : "text-gray-500"
               }`}

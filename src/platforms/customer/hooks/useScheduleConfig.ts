@@ -195,21 +195,25 @@ export function useScheduleConfig(
           if (scheduledAddonPlans[id]) addonPlansToSave[id] = scheduledAddonPlans[id];
         });
 
-      // Update the connection row when available; fall back to customers for
-      // backward compat with sessions that predate the multi-connection migration.
-      const table = sessionData.connection_id ? "customer_connections" : "customers";
-      const rowId = sessionData.connection_id ?? sessionData.id;
+      // These columns only exist on customer_connections — guard against missing ID.
+      if (!sessionData.connection_id) {
+        throw new Error("No connection_id in session — cannot save schedule.");
+      }
 
-      const { error } = await (supabase as any)
-        .from(table)
+      const { error, data: updatedRows } = await (supabase as any)
+        .from("customer_connections")
         .update({
           scheduled_services: scheduledServices,
           scheduled_broadband_plan_id: scheduledPlanId || null,
           scheduled_addon_plans: addonPlansToSave,
         })
-        .eq("id", rowId);
+        .eq("id", sessionData.connection_id)
+        .select("id");
 
       if (error) throw error;
+      if (!updatedRows || updatedRows.length === 0) {
+        throw new Error("Schedule update matched 0 rows — check connection ID and RLS policies.");
+      }
 
       const persistentSession = {
         ...sessionData,
@@ -221,7 +225,6 @@ export function useScheduleConfig(
       setSessionData(persistentSession);
 
       setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 15000);
     } catch (err: any) {
       console.error("Database Update Error:", err);
       alert(`Failed to save changes: ${err.message}`);
