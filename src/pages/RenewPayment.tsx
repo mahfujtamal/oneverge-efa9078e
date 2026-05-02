@@ -135,15 +135,20 @@ const RenewPayment = () => {
       setDbAddonRates({});
       return;
     }
+    // addons table is now a pure catalog — fetch prices from addon_plans instead.
     (async () => {
       const { data } = await (supabase as any)
-        .from("addons")
-        .select("id, price, base_price")
-        .in("id", addonIds);
+        .from("addon_plans")
+        .select("addon_id, price, base_price")
+        .in("addon_id", addonIds)
+        .eq("is_active", true)
+        .order("effective_from", { ascending: false });
       if (data) {
         const rates: Record<string, number> = {};
-        (data as any[]).forEach((a) => {
-          rates[a.id] = Number(a.price ?? a.base_price ?? 0);
+        (data as any[]).forEach((plan) => {
+          if (!(plan.addon_id in rates)) {
+            rates[plan.addon_id] = Number(plan.price ?? plan.base_price ?? 0);
+          }
         });
         setDbAddonRates(rates);
       }
