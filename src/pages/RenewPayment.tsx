@@ -183,7 +183,7 @@ const RenewPayment = () => {
   const cycleCost = useMemo(() => {
     const addonsTotal = Object.entries(activeAddons)
       .filter(([id, active]) => active && id !== "broadband")
-      .reduce((sum, [id]) => sum + (dbAddonRates[id] ?? ONEVERGE_SUITE_RATES[id] || 0), 0);
+      .reduce((sum, [id]) => sum + (dbAddonRates[id] ?? ONEVERGE_SUITE_RATES[id] ?? 0), 0);
     return basePrice + addonsTotal;
   }, [activeAddons, basePrice, dbAddonRates]);
 
