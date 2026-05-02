@@ -157,7 +157,13 @@ Deno.serve(async (req) => {
         if (body.scheduledBroadbandPlanId) {
           updates.broadband_plan_id = body.scheduledBroadbandPlanId;
           updates.scheduled_broadband_plan_id = body.scheduledBroadbandPlanId;
-          if (body.speed) updates.speed = body.speed;
+          const { data: bpRow } = await supabase
+            .from("broadband_plans")
+            .select("speed")
+            .eq("id", body.scheduledBroadbandPlanId)
+            .maybeSingle();
+          if (bpRow?.speed) updates.speed = bpRow.speed;
+          else if (body.speed) updates.speed = body.speed;
         }
       }
 
@@ -169,7 +175,13 @@ Deno.serve(async (req) => {
         if (record.scheduled_broadband_plan_id) {
           updates.broadband_plan_id = record.scheduled_broadband_plan_id;
           updates.scheduled_broadband_plan_id = record.scheduled_broadband_plan_id;
-          if (body.speed) updates.speed = body.speed;
+          const { data: bpRow } = await supabase
+            .from("broadband_plans")
+            .select("speed")
+            .eq("id", record.scheduled_broadband_plan_id)
+            .maybeSingle();
+          if (bpRow?.speed) updates.speed = bpRow.speed;
+          else if (body.speed) updates.speed = body.speed;
         }
       }
     }
