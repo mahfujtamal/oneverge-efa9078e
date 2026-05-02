@@ -38,6 +38,7 @@ export interface FinaliseInput {
   scheduledAddonPlans?: Record<string, string>; // addon_id → plan_id selections at checkout
   scheduledBroadbandPlanId?: string | null; // broadband plan the customer chose at checkout
   speed?: string | null; // speed of the broadband plan chosen at checkout (e.g. "25 Mbps")
+  addonRates?: Record<string, number>; // actual per-addon prices from DB; falls back to ONEVERGE_SUITE_RATES
 }
 
 export interface FinaliseResult {
@@ -89,7 +90,7 @@ export async function finalisePayment(input: FinaliseInput): Promise<FinaliseRes
         scheduledServices,
         isRenewalDue,
         nextRenewalDate: nextRenewalDate.toISOString(),
-        addonRates: ONEVERGE_SUITE_RATES,
+        addonRates: input.addonRates ?? ONEVERGE_SUITE_RATES,
         scheduledAddonPlans: scheduledAddonPlans ?? null,
         scheduledBroadbandPlanId: scheduledBroadbandPlanId ?? null,
         speed: speed ?? null,

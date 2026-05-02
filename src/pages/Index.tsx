@@ -508,6 +508,15 @@ const Index = () => {
               .filter((s) => s !== "broadband")
               .reduce((sum, id) => sum + (ONEVERGE_SUITE_RATES[id] || 0), 0);
 
+        // Derive actual per-addon prices from the DB-fetched pricingBreakdown so
+        // the edge function computes the correct cycleCost (not stale constants).
+        const addonRates: Record<string, number> = {};
+        pricingBreakdown.items.forEach((item) => {
+          if (item.id !== "broadband") {
+            addonRates[item.id] = item.total;
+          }
+        });
+
         const { finalisePayment } = await import("@/lib/finalisePayment");
         await finalisePayment({
           context: "activation",
@@ -521,6 +530,7 @@ const Index = () => {
           nextRenewalDate: new Date(),
           scheduledBroadbandPlanId: effectivePlanId,
           speed: effectiveSpeed,
+          addonRates,
         });
 
         // Refresh local userData with the post-activation state from the connection row

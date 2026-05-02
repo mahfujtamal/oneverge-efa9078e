@@ -74,6 +74,7 @@ const RenewPayment = () => {
   // rely on stale session values like selectedOffer.price (which can drift
   // from what the customer is actually subscribed to).
   const [dbBroadbandPrice, setDbBroadbandPrice] = useState<number | null>(null);
+  const [dbAddonRates, setDbAddonRates] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const fetchPlanPrice = async () => {
@@ -128,6 +129,27 @@ const RenewPayment = () => {
     sessionData?.speed,
   ]);
 
+  useEffect(() => {
+    const addonIds = Object.keys(activeAddons).filter((id) => activeAddons[id] && id !== "broadband");
+    if (addonIds.length === 0) {
+      setDbAddonRates({});
+      return;
+    }
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("addons")
+        .select("id, price, base_price")
+        .in("id", addonIds);
+      if (data) {
+        const rates: Record<string, number> = {};
+        (data as any[]).forEach((a) => {
+          rates[a.id] = Number(a.price ?? a.base_price ?? 0);
+        });
+        setDbAddonRates(rates);
+      }
+    })();
+  }, [activeAddons]);
+
   const basePrice = useMemo(() => {
     if (dbBroadbandPrice && dbBroadbandPrice > 0) return dbBroadbandPrice;
     return sessionData?.selectedOffer?.price || sessionData?.basePrice || 800;
@@ -157,13 +179,13 @@ const RenewPayment = () => {
     return next;
   }, [sessionData]);
 
-  // Cycle cost = base + scheduled addons (mirrors edge function).
+  // Cycle cost = base + scheduled addons using actual DB prices (mirrors edge function).
   const cycleCost = useMemo(() => {
     const addonsTotal = Object.entries(activeAddons)
       .filter(([id, active]) => active && id !== "broadband")
-      .reduce((sum, [id]) => sum + (ONEVERGE_SUITE_RATES[id] || 0), 0);
+      .reduce((sum, [id]) => sum + (dbAddonRates[id] ?? ONEVERGE_SUITE_RATES[id] || 0), 0);
     return basePrice + addonsTotal;
-  }, [activeAddons, basePrice]);
+  }, [activeAddons, basePrice, dbAddonRates]);
 
   // Renewal is "due" if today >= renewal date OR account is already expired.
   const isRenewalDue = useMemo(() => {
@@ -202,6 +224,7 @@ const RenewPayment = () => {
         scheduledServices,
         isRenewalDue,
         nextRenewalDate,
+        addonRates: dbAddonRates,
       });
 
       updatedSession = result.updatedCustomer;
