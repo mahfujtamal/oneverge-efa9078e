@@ -102,11 +102,9 @@ const Index = () => {
     }
 
     // Restore landing step from the primary customer_connections row.
-    // account_status drives which step to resume; all data comes from the DB
-    // and the session object — no localStorage snapshot dependency.
-    let session: Record<string, any> = {};
-    try { session = JSON.parse(localStorage.getItem("oneverge_session") || "{}"); } catch {}
-    const userId = session?.id;
+    // Only userId is read from localStorage — all other data is fetched from the DB.
+    let userId: string | null = null;
+    try { userId = JSON.parse(localStorage.getItem("oneverge_session") || "{}").id ?? null; } catch {}
     if (!userId) return;
 
     (async () => {
@@ -118,7 +116,7 @@ const Index = () => {
           // New (non-primary) connection in progress — most recent one.
           const { data } = await (supabase as any)
             .from("customer_connections")
-            .select("id, account_status, isp_id, broadband_plan_id, scheduled_services")
+            .select("id, account_status, isp_id, broadband_plan_id, scheduled_services, active_services, address, balance, speed, area_id")
             .eq("customer_id", userId)
             .eq("is_primary", false)
             .in("account_status", ["account created", "feasibility done"])
@@ -130,7 +128,7 @@ const Index = () => {
           // Normal re-login — primary connection only.
           const { data } = await (supabase as any)
             .from("customer_connections")
-            .select("id, account_status, isp_id, broadband_plan_id, scheduled_services")
+            .select("id, account_status, isp_id, broadband_plan_id, scheduled_services, active_services, address, balance, speed, area_id")
             .eq("customer_id", userId)
             .eq("is_primary", true)
             .order("is_primary", { ascending: false })
@@ -141,14 +139,48 @@ const Index = () => {
 
         if (!conn) return;
 
+        // Fetch customer profile and ISP name in parallel — no session spread.
+        const [custResult, ispResult] = await Promise.all([
+          (supabase as any)
+            .from("customers")
+            .select("id, display_name, phone_number, email, dob, nid, user_id")
+            .eq("id", userId)
+            .maybeSingle(),
+          conn.isp_id
+            ? (supabase as any).from("isps").select("id, name").eq("id", conn.isp_id).maybeSingle()
+            : Promise.resolve({ data: null }),
+        ]);
+
+        const customer = custResult.data;
+        const isp = ispResult.data;
+        if (!customer) return;
+
+        const baseUserData = {
+          id: customer.id,
+          user_id: customer.user_id,
+          display_name: customer.display_name,
+          name: customer.display_name,
+          phone_number: customer.phone_number,
+          email: customer.email,
+          dob: customer.dob,
+          nid: customer.nid,
+          address: conn.address || "",
+          isp_id: conn.isp_id || null,
+          ispName: isp?.name || "",
+          balance: conn.balance,
+          speed: conn.speed,
+          area_id: conn.area_id || null,
+          connection_id: conn.id,
+        };
+
         if (conn.account_status === "account created") {
-          setUserData({ ...session, connection_id: conn.id, password: undefined });
+          setUserData(baseUserData);
           setStep(5);
         } else if (conn.account_status === "feasibility done") {
-          setUserData({ ...session, connection_id: conn.id, password: undefined });
-          setLocation(session.location || session.address || "");
+          setUserData(baseUserData);
+          setLocation(conn.address || "");
 
-          if (conn.isp_id) setSelectedISP({ id: conn.isp_id, name: session.ispName || "" });
+          if (conn.isp_id) setSelectedISP({ id: conn.isp_id, name: isp?.name || "" });
 
           if (conn.broadband_plan_id) {
             const { data: plan } = await (supabase as any)
