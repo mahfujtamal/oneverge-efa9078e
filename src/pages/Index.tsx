@@ -137,6 +137,8 @@ const Index = () => {
           conn = data;
         }
 
+        alert(`[DEBUG 1] conn fetched\nstatus: ${conn?.account_status}\nisp_id: ${conn?.isp_id}\nbroadband_plan_id: ${conn?.broadband_plan_id}\nconn_id: ${conn?.id}`);
+
         if (!conn) return;
 
         // Fetch customer profile and ISP name in parallel — no session spread.
@@ -153,6 +155,9 @@ const Index = () => {
 
         const customer = custResult.data;
         const isp = ispResult.data;
+
+        alert(`[DEBUG 2] customer + ISP fetched\ncustomer.id: ${customer?.id}\ncustomer.display_name: ${customer?.display_name}\nisp.name: ${isp?.name}`);
+
         if (!customer) return;
 
         const baseUserData = {
@@ -188,6 +193,9 @@ const Index = () => {
               .select("id, name, speed, price, base_price")
               .eq("id", conn.broadband_plan_id)
               .maybeSingle();
+
+            alert(`[DEBUG 3] selectedOffer plan fetched\nplan.id: ${plan?.id}\nplan.name: ${plan?.name}\nplan.price: ${plan?.price}`);
+
             if (plan) {
               setSelectedOffer({
                 id: plan.id,
@@ -207,12 +215,17 @@ const Index = () => {
               .select("id, name, speed, price, base_price")
               .eq("isp_id", conn.isp_id)
               .eq("is_active", true);
+
+            alert(`[DEBUG 4] ISP plan list fetched\nisp_id queried: ${conn.isp_id}\nplans returned: ${planList?.length ?? 0}\nplan names: ${(planList || []).map((p: any) => p.name || p.speed).join(", ") || "none"}`);
+
             plans = (planList || []).map((p: any) => ({
               id: p.id,
               name: p.name || p.speed,
               speed: p.speed,
               price: Number(p.price ?? p.base_price ?? 0),
             }));
+          } else {
+            alert(`[DEBUG 4] SKIPPED — conn.isp_id is null/empty`);
           }
           // Fallback: ISP query empty → fetch the single assigned plan by ID.
           if (plans.length === 0 && conn.broadband_plan_id) {
@@ -221,10 +234,16 @@ const Index = () => {
               .select("id, name, speed, price, base_price")
               .eq("id", conn.broadband_plan_id)
               .maybeSingle();
+
+            alert(`[DEBUG 5] fallback single plan fetched\nfp.id: ${fp?.id}\nfp.name: ${fp?.name}`);
+
             if (fp) {
               plans = [{ id: fp.id, name: fp.name || fp.speed, speed: fp.speed, price: Number(fp.price ?? fp.base_price ?? 0) }];
             }
           }
+
+          alert(`[DEBUG 6] setBroadbandPlans\nplans.length: ${plans.length}\nnames: ${plans.map(p => p.name).join(", ") || "none"}`);
+
           if (plans.length > 0) setBroadbandPlans(plans);
 
           const services: string[] = conn.scheduled_services || [];
@@ -235,6 +254,7 @@ const Index = () => {
             ),
           );
 
+          alert(`[DEBUG 7] calling setStep(7)\nservices: ${services.join(", ") || "none"}`);
           setStep(7);
         }
         // "active", "expired", etc. are routed to /dashboard by Login.tsx
