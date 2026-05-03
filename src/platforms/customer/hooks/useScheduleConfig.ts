@@ -221,6 +221,14 @@ export function useScheduleConfig(
 
       if (error) throw error;
       if (!fnRes?.ok) {
+        // Stale localStorage session pointing at a deleted/missing connection row.
+        // Clear it and force re-login so the user recovers cleanly.
+        if (fnRes?.error === "connection_not_found") {
+          try { localStorage.removeItem("oneverge_session"); } catch {}
+          alert("This connection no longer exists. Please log in again.");
+          window.location.href = "/login";
+          return;
+        }
         throw new Error(fnRes?.error || "Schedule update failed.");
       }
 
