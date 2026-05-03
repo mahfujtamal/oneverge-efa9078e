@@ -111,10 +111,11 @@ const Landing = () => {
 
   const { addonPlansByService } = useAddonPlans();
 
-  // At step 7, auto-select the first available plan for each active service that has no
-  // plan selected yet (covers login-resume at "feasibility done" where step 2 was skipped).
+  // Auto-select the first available plan for any active add-on missing a selection.
+  // Runs whenever the user toggles add-ons (step 2) or when add-on plans finish loading,
+  // so KYC submission and the activation payment carry real plan ids — not empty objects.
   React.useEffect(() => {
-    if (step !== 7 || Object.keys(addonPlansByService).length === 0) return;
+    if (Object.keys(addonPlansByService).length === 0) return;
     const updates: Record<string, string> = {};
     Object.entries(active).forEach(([id, isActive]) => {
       if (isActive && id !== "broadband" && !selectedAddonPlans[id]) {
@@ -126,7 +127,7 @@ const Landing = () => {
       setSelectedAddonPlans((prev: Record<string, string>) => ({ ...prev, ...updates }));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, addonPlansByService]);
+  }, [active, addonPlansByService]);
 
   // Fetch broadband plans for the selected ISP so the checkout can offer plan switching.
   // Queries broadband_plans directly by isp_id — no isp_area_plans join, no areaId needed.
