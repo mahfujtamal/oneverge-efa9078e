@@ -25,10 +25,15 @@ const Landing = () => {
 
   // "Add Connection" mode: existing customer adding a second broadband connection.
   // Skip identity steps (step 1 hero, step 4 KYC form).
+  // "Resume" mode: existing customer continuing a specific pending connection
+  // (account_status = "account created" or "feasibility done"). useOnboardingState
+  // takes over and routes to step 5 / step 7 — we must NOT pre-fill identity
+  // or force step 2 here.
   const isAddConnection = !!(routerState as any)?.addConnection;
+  const isResumeConnection = !!(routerState as any)?.resumeConnectionId;
 
   React.useEffect(() => {
-    if (isAddConnection) return;
+    if (isAddConnection || isResumeConnection) return;
     const saved = localStorage.getItem("oneverge_session") || localStorage.getItem("oneverge_user");
     if (!saved) return;
     try {
@@ -42,7 +47,7 @@ const Landing = () => {
       localStorage.removeItem("oneverge_session");
       localStorage.removeItem("oneverge_user");
     }
-  }, [isAddConnection, navigate]);
+  }, [isAddConnection, isResumeConnection, navigate]);
 
   const state = useOnboardingState(routerState);
   const {
@@ -66,7 +71,8 @@ const Landing = () => {
   // Identity (name/phone/email/NID/DOB) is locked in StepIdentity. The address defaults
   // to the primary connection's address but the customer can edit it.
   React.useEffect(() => {
-    if (!isAddConnection) return;
+    // Resume mode is handled by useOnboardingState (routes to step 5 / 7).
+    if (!isAddConnection || isResumeConnection) return;
     const saved = localStorage.getItem("oneverge_session") || localStorage.getItem("oneverge_user");
     if (!saved) return;
     let parsed: any = null;

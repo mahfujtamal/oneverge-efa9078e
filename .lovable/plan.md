@@ -1,32 +1,46 @@
-## Background
+## Problem
 
-You asked whether onboarding syncs both `active_*`/`scheduled_*` and `broadband_plan_id`/`scheduled_broadband_plan_id`.
+When a customer with multiple connections logs out after a secondary connection reaches "feasibility done" and then logs back in, clicking the **Balance** card on Dashboard for that pending connection takes them to **step 1** instead of resuming at **step 7**.
 
-**Confirmed YES.** In `supabase/functions/finalize-payment/index.ts`, the activation branch writes all three pairs in lockstep:
+## Root Cause
 
-- `active_services` ← → `scheduled_services` (lines 139–140)
-- `active_addon_plans` ← → `scheduled_addon_plans` (lines 161–162)
-- `broadband_plan_id` ← → `scheduled_broadband_plan_id` (lines 165–166)
+Three pieces conspire to break the resume:
 
-Plus the speed string is resolved from the chosen plan and written too. So a freshly activated connection always lands with `active_* === scheduled_*`, and they only diverge later when the customer edits Next Cycle config.
+1. **`Dashboard.tsx`** balance card calls `navigate("/")` with **no state**, so Landing has no signal about which connection to resume.
+2. **`Landing.tsx`** has a guard that, when the saved session's `account_status` is "active" (the primary connection's status), force-redirects to `/dashboard`. The secondary "feasibility done" connection is never considered.
+3. **`useOnboardingState.ts`** restoration query only looks at the **primary** connection (`.eq("is_primary", true)`). Even if Landing rendered, it would still find the active primary and not the pending secondary.
 
-## What I found while verifying
+## Fix
 
-While checking the DB to confirm, I noticed two things that explain the "Save Schedule failed: 0 rows" you keep hitting:
+### 1. `src/pages/Dashboard.tsx`
+When the balance card is clicked for a non-activated connection, pass `addConnection: true` and the target `connectionId` in router state, so Landing knows to resume that specific connection's onboarding instead of the primary's:
 
-1. **`customer_connections` is currently empty in the database** (0 rows). Same for `customers`. So if your browser still has an `oneverge_session` in localStorage from a prior test, its `connection_id` points at a row that no longer exists — every update will match 0 rows.
-2. **`update-connection-schedule` has zero invocation logs**, which means either it has never been called from the client, or it isn't deployed in the environment you're testing against. The client code in `useScheduleConfig.ts` does invoke it correctly — so the most likely cause is that the function isn't deployed.
+```ts
+onClick={() =>
+  isActivated
+    ? navigate("/billing", { state: sessionData })
+    : navigate("/", { state: { addConnection: true, resumeConnectionId: sessionData.connection_id } })
+}
+```
 
-## Plan
+This reuses the existing `addConnection` channel, which already disables the dashboard-redirect guard in Landing.
 
-1. **Re-deploy `update-connection-schedule`** so the Save Schedule call has somewhere to land.
-2. **Improve the client error message** in `useScheduleConfig.ts` so when the edge function returns `connection_not_found`, the alert says "This connection no longer exists — please log out and log back in" instead of a generic "0 rows" message. This makes stale-localStorage situations debuggable for end users.
-3. **Add a stale-session guard**: when `update-connection-schedule` returns `connection_not_found`, automatically clear `localStorage.oneverge_session` and redirect to `/login` so the user recovers cleanly without manual intervention.
-4. **Verify after deploy**: I'll fetch the function logs once you trigger Save Schedule again so we can see the actual payload and confirm the path is reaching the edge function.
+### 2. `src/platforms/customer/pages/Landing.tsx`
+Currently the `isAddConnection` branch always pre-fills identity and starts at step 2. Extend the effect: if `routerState.resumeConnectionId` is present, fetch **that specific connection** (by id, not `is_primary`) and:
+- If `account_status === "feasibility done"` → hydrate `selectedISP`, `selectedOffer`, `active`, `selectedAddonPlans`, `connectionId`, then `setStep(7)`.
+- If `account_status === "account created"` → `setStep(5)`.
+- Otherwise fall back to current step-2 behaviour.
 
-No DB schema changes. No changes to onboarding sync logic (it's already correct).
+The existing `isAddConnection` guard already short-circuits the dashboard auto-redirect, so no extra change is needed for guard behaviour.
 
-## Files touched
+### 3. `src/platforms/customer/hooks/useOnboardingState.ts`
+Accept an optional `resumeConnectionId` from `routerState`. When present, query `customer_connections` by `id` instead of `is_primary=true`. This keeps the existing single-connection flow intact while supporting non-primary resume.
 
-- `supabase/functions/update-connection-schedule/index.ts` — redeploy (no code change required, but I'll re-verify the file is current).
-- `src/platforms/customer/hooks/useScheduleConfig.ts` — better error handling and stale-session recovery in the catch branch of `handleSaveSchedule`.
+## Files Changed
+- `src/pages/Dashboard.tsx` — balance card navigates with `{ addConnection, resumeConnectionId }` for pending connections.
+- `src/platforms/customer/pages/Landing.tsx` — add-connection effect honours `resumeConnectionId` and routes to step 5 / step 7 based on the targeted connection's status.
+- `src/platforms/customer/hooks/useOnboardingState.ts` — restoration query targets the resume connection id when supplied; otherwise primary as today.
+
+## Out of Scope
+- No DB or edge-function changes.
+- No changes to `finalize-payment`, `update-connection-schedule`, or auth.
