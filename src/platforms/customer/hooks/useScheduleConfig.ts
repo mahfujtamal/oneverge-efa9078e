@@ -199,20 +199,29 @@ export function useScheduleConfig(
       if (!sessionData.connection_id) {
         throw new Error("No connection_id in session — cannot save schedule.");
       }
+      if (!sessionData.id) {
+        throw new Error("No customer id in session — cannot save schedule.");
+      }
 
-      const { error, data: updatedRows } = await (supabase as any)
-        .from("customer_connections")
-        .update({
-          scheduled_services: scheduledServices,
-          scheduled_broadband_plan_id: scheduledPlanId || null,
-          scheduled_addon_plans: addonPlansToSave,
-        })
-        .eq("id", sessionData.connection_id)
-        .select("id");
+      // Direct browser updates are blocked by RLS (no UPDATE policy on customer_connections),
+      // because the customer auth flow does not produce an auth.uid. Delegate to the
+      // service-role edge function which verifies ownership server-side.
+      const { data: fnRes, error } = await supabase.functions.invoke(
+        "update-connection-schedule",
+        {
+          body: {
+            customer_id: sessionData.id,
+            connection_id: sessionData.connection_id,
+            scheduled_services: scheduledServices,
+            scheduled_broadband_plan_id: scheduledPlanId || null,
+            scheduled_addon_plans: addonPlansToSave,
+          },
+        },
+      );
 
       if (error) throw error;
-      if (!updatedRows || updatedRows.length === 0) {
-        throw new Error("Schedule update matched 0 rows — check connection ID and RLS policies.");
+      if (!fnRes?.ok) {
+        throw new Error(fnRes?.error || "Schedule update failed.");
       }
 
       const persistentSession = {
