@@ -71,7 +71,8 @@ const Landing = () => {
   // Identity (name/phone/email/NID/DOB) is locked in StepIdentity. The address defaults
   // to the primary connection's address but the customer can edit it.
   React.useEffect(() => {
-    if (!isAddConnection) return;
+    // Resume mode is handled by useOnboardingState (routes to step 5 / 7).
+    if (!isAddConnection || isResumeConnection) return;
     const saved = localStorage.getItem("oneverge_session") || localStorage.getItem("oneverge_user");
     if (!saved) return;
     let parsed: any = null;
