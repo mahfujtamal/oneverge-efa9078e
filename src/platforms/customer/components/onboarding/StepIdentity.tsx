@@ -64,6 +64,13 @@ const StepIdentity = ({
     onKYCSubmit();
   };
 
+  // Identity fields are immutable for add-connection (already verified on file).
+  // Only the installation address may be edited (defaults to primary connection address).
+  const lockedClass =
+    "bg-black/40 p-4 w-full rounded-xl border border-white/10 text-gray-400 uppercase text-[11px] font-bold outline-none cursor-not-allowed opacity-70";
+  const editableClass =
+    "bg-black/40 p-4 w-full rounded-xl border border-white/10 text-white uppercase text-[11px] font-bold outline-none focus:border-ov-primary transition-all";
+
   return (
     <motion.div
       key="s4"
