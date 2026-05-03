@@ -25,7 +25,12 @@ const Landing = () => {
 
   // "Add Connection" mode: existing customer adding a second broadband connection.
   // Skip identity steps (step 1 hero, step 4 KYC form).
+  // "Resume" mode: existing customer continuing a specific pending connection
+  // (account_status = "account created" or "feasibility done"). useOnboardingState
+  // takes over and routes to step 5 / step 7 — we must NOT pre-fill identity
+  // or force step 2 here.
   const isAddConnection = !!(routerState as any)?.addConnection;
+  const isResumeConnection = !!(routerState as any)?.resumeConnectionId;
 
   React.useEffect(() => {
     if (isAddConnection) return;
