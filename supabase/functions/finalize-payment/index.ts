@@ -149,11 +149,18 @@ Deno.serve(async (req) => {
 
       // For activation: write the plan selections the customer made at the payment step.
       // This overrides whatever register-customer seeded, capturing any last-minute changes.
+      // We always write (even when empty) so deselected add-ons don't keep stale plan ids.
       if (body.context === "activation") {
-        if (body.scheduledAddonPlans && Object.keys(body.scheduledAddonPlans).length > 0) {
-          updates.active_addon_plans = body.scheduledAddonPlans;
-          updates.scheduled_addon_plans = body.scheduledAddonPlans;
+        const filteredAddonPlans: Record<string, string> = {};
+        const incoming = body.scheduledAddonPlans ?? {};
+        for (const sid of cycleServices) {
+          if (sid === "broadband") continue;
+          const planId = (incoming as Record<string, string>)[sid];
+          if (planId) filteredAddonPlans[sid] = planId;
         }
+        updates.active_addon_plans = filteredAddonPlans;
+        updates.scheduled_addon_plans = filteredAddonPlans;
+
         if (body.scheduledBroadbandPlanId) {
           updates.broadband_plan_id = body.scheduledBroadbandPlanId;
           updates.scheduled_broadband_plan_id = body.scheduledBroadbandPlanId;
