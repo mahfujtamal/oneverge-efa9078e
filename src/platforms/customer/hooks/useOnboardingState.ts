@@ -90,27 +90,41 @@ export function useOnboardingState(routerState: unknown) {
       return;
     }
 
+    const resumeConnectionId: string | undefined = state?.resumeConnectionId;
     const storedSession = readStoredSession();
-    if (shouldOpenDashboardForStatus(storedSession?.account_status) && !state?.addConnection) {
+
+    // Only auto-route to dashboard when there's no explicit add/resume intent.
+    if (
+      shouldOpenDashboardForStatus(storedSession?.account_status) &&
+      !state?.addConnection &&
+      !resumeConnectionId
+    ) {
       localStorage.removeItem("oneverge_onboarding_state");
       setSafeStep(1);
       return;
     }
 
-    // Restore landing step from the primary customer_connections row.
+    // Restore landing step from a target connection. When resumeConnectionId is
+    // supplied (e.g. clicking the balance card for a non-primary pending
+    // connection), look up that exact connection. Otherwise fall back to the
+    // customer's primary connection.
     const userId = storedSession?.id;
     if (!userId) return;
 
     (async () => {
       try {
-        const { data: conn } = await (supabase as any)
+        let query = (supabase as any)
           .from("customer_connections")
-          .select("id, account_status, isp_id, broadband_plan_id, scheduled_services, area_id")
-          .eq("customer_id", userId)
-          .eq("is_primary", true)
-          .order("is_primary", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+          .select("id, account_status, isp_id, broadband_plan_id, scheduled_services, scheduled_addon_plans, area_id, address")
+          .eq("customer_id", userId);
+
+        if (resumeConnectionId) {
+          query = query.eq("id", resumeConnectionId);
+        } else {
+          query = query.eq("is_primary", true).order("is_primary", { ascending: false });
+        }
+
+        const { data: conn } = await query.limit(1).maybeSingle();
 
         if (!conn) return;
 
@@ -119,9 +133,14 @@ export function useOnboardingState(routerState: unknown) {
           setConnectionId(conn.id);
           setSafeStep(5);
         } else if (conn.account_status === "feasibility done") {
-          setUserData({ ...storedSession, connection_id: conn.id, password: undefined });
+          setUserData({
+            ...storedSession,
+            connection_id: conn.id,
+            address: conn.address || storedSession.address || "",
+            password: undefined,
+          });
           setConnectionId(conn.id);
-          setLocation(storedSession.location || storedSession.address || "");
+          setLocation(storedSession.location || conn.address || storedSession.address || "");
 
           if (conn.area_id) setAreaId(conn.area_id);
           if (conn.isp_id) setSelectedISP({ id: conn.isp_id, name: storedSession.ispName || "" });
@@ -149,6 +168,10 @@ export function useOnboardingState(routerState: unknown) {
               { broadband: true },
             ),
           );
+
+          if (conn.scheduled_addon_plans && typeof conn.scheduled_addon_plans === "object") {
+            setSelectedAddonPlans(conn.scheduled_addon_plans as Record<string, string>);
+          }
 
           setSafeStep(7);
         }
