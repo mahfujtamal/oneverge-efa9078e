@@ -63,29 +63,59 @@ const Landing = () => {
   } = state;
 
   // For "Add Connection" mode: pre-populate identity from existing session and start at step 2.
+  // Identity (name/phone/email/NID/DOB) is locked in StepIdentity. The address defaults
+  // to the primary connection's address but the customer can edit it.
   React.useEffect(() => {
     if (!isAddConnection) return;
     const saved = localStorage.getItem("oneverge_session") || localStorage.getItem("oneverge_user");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (parsed?.id) {
-          setUserData((prev: any) => ({ ...prev, ...parsed }));
-          setStep(2);
-        }
-      } catch {
-        /* ignore */
-      }
+    if (!saved) return;
+    let parsed: any = null;
+    try {
+      parsed = JSON.parse(saved);
+    } catch {
+      return;
     }
+    if (!parsed?.id) return;
+
+    setStep(2);
+    (async () => {
+      // Fetch the most recent customer + primary connection so identity fields are
+      // accurate and the address pre-fills from the existing primary connection.
+      const { data: customer } = await (supabase as any)
+        .from("customers")
+        .select("id, user_id, display_name, phone_number, email, nid, dob")
+        .eq("id", parsed.id)
+        .maybeSingle();
+
+      const { data: primaryConn } = await (supabase as any)
+        .from("customer_connections")
+        .select("address")
+        .eq("customer_id", parsed.id)
+        .eq("is_primary", true)
+        .maybeSingle();
+
+      const merged = {
+        ...parsed,
+        ...(customer || {}),
+        name: customer?.display_name || parsed.display_name || parsed.name || "",
+        phone: customer?.phone_number || parsed.phone_number || parsed.phone || "",
+        email: customer?.email || parsed.email || "",
+        nid: customer?.nid != null ? String(customer.nid) : (parsed.nid ?? ""),
+        dob: customer?.dob || parsed.dob || "",
+        address: primaryConn?.address || parsed.address || "",
+      };
+      setUserData((prev: any) => ({ ...prev, ...merged }));
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAddConnection]);
 
   const { addonPlansByService } = useAddonPlans();
 
-  // At step 7, auto-select the first available plan for each active service that has no
-  // plan selected yet (covers login-resume at "feasibility done" where step 2 was skipped).
+  // Auto-select the first available plan for any active add-on missing a selection.
+  // Runs whenever the user toggles add-ons (step 2) or when add-on plans finish loading,
+  // so KYC submission and the activation payment carry real plan ids — not empty objects.
   React.useEffect(() => {
-    if (step !== 7 || Object.keys(addonPlansByService).length === 0) return;
+    if (Object.keys(addonPlansByService).length === 0) return;
     const updates: Record<string, string> = {};
     Object.entries(active).forEach(([id, isActive]) => {
       if (isActive && id !== "broadband" && !selectedAddonPlans[id]) {
@@ -97,7 +127,7 @@ const Landing = () => {
       setSelectedAddonPlans((prev: Record<string, string>) => ({ ...prev, ...updates }));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, addonPlansByService]);
+  }, [active, addonPlansByService]);
 
   // Fetch broadband plans for the selected ISP so the checkout can offer plan switching.
   // Queries broadband_plans directly by isp_id — no isp_area_plans join, no areaId needed.

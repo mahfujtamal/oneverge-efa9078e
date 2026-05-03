@@ -211,7 +211,7 @@ const Dashboard = () => {
               onClick={() =>
                 isActivated
                   ? navigate("/billing", { state: sessionData })
-                  : navigate("/", { state: { addConnection: true } })
+                  : navigate("/")
               }
             >
               <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-12 -mt-12" />

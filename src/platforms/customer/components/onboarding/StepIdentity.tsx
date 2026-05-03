@@ -64,6 +64,13 @@ const StepIdentity = ({
     onKYCSubmit();
   };
 
+  // Identity fields are immutable for add-connection (already verified on file).
+  // Only the installation address may be edited (defaults to primary connection address).
+  const lockedClass =
+    "bg-black/40 p-4 w-full rounded-xl border border-white/10 text-gray-400 uppercase text-[11px] font-bold outline-none cursor-not-allowed opacity-70";
+  const editableClass =
+    "bg-black/40 p-4 w-full rounded-xl border border-white/10 text-white uppercase text-[11px] font-bold outline-none focus:border-ov-primary transition-all";
+
   return (
     <motion.div
       key="s4"
@@ -90,33 +97,36 @@ const StepIdentity = ({
           {/* Name */}
           <div className="space-y-2">
             <input
-              className="bg-black/40 p-4 w-full rounded-xl border border-white/10 text-white uppercase text-[11px] font-bold outline-none focus:border-ov-primary transition-all"
+              className={isAddConnection ? lockedClass : editableClass}
               placeholder="Full Name"
               maxLength={100}
               value={userData.name}
-              onChange={(e) => setUserData({ ...userData, name: e.target.value })}
+              readOnly={isAddConnection}
+              onChange={(e) => !isAddConnection && setUserData({ ...userData, name: e.target.value })}
             />
           </div>
 
           {/* Phone */}
           <div className="space-y-2">
             <input
-              className="bg-black/40 p-4 w-full rounded-xl border border-white/10 text-white uppercase text-[11px] font-bold outline-none focus:border-ov-primary transition-all"
+              className={isAddConnection ? lockedClass : editableClass}
               placeholder="Mobile Number"
               maxLength={15}
-              value={userData.phone}
-              onChange={(e) => setUserData({ ...userData, phone: e.target.value })}
+              value={userData.phone || userData.phone_number || ""}
+              readOnly={isAddConnection}
+              onChange={(e) => !isAddConnection && setUserData({ ...userData, phone: e.target.value })}
             />
           </div>
 
           {/* Email */}
           <div className="space-y-2 sm:col-span-1">
             <input
-              className="bg-black/40 p-4 w-full rounded-xl border border-white/10 text-white lowercase text-[11px] font-bold outline-none focus:border-ov-primary transition-all"
+              className={cn(isAddConnection ? lockedClass : editableClass, "lowercase")}
               placeholder="node@oneverge.com"
               type="email"
-              value={userData.email}
-              onChange={(e) => setUserData({ ...userData, email: e.target.value })}
+              value={userData.email || ""}
+              readOnly={isAddConnection}
+              onChange={(e) => !isAddConnection && setUserData({ ...userData, email: e.target.value })}
             />
           </div>
 
@@ -172,47 +182,55 @@ const StepIdentity = ({
           {/* NID */}
           <div className="space-y-2">
             <input
-              className="bg-black/40 p-4 w-full rounded-xl border border-white/10 text-white uppercase text-[11px] font-bold outline-none focus:border-ov-primary transition-all"
+              className={isAddConnection ? lockedClass : editableClass}
               placeholder="NID"
               maxLength={17}
-              value={userData.nid}
-              onChange={(e) => setUserData({ ...userData, nid: e.target.value })}
+              value={userData.nid || ""}
+              readOnly={isAddConnection}
+              onChange={(e) => !isAddConnection && setUserData({ ...userData, nid: e.target.value })}
             />
           </div>
 
           {/* DOB */}
           <div className="space-y-2">
             <div className="relative group">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant={"outline"}
-                    className={cn(
-                      "bg-black/40 p-4 w-full h-[54px] rounded-xl border border-white/10 text-white outline-none focus:border-ov-primary hover:bg-black/60 hover:text-white transition-all font-bold text-[11px] uppercase justify-start text-left font-normal",
-                      !userData.dob && "text-gray-500",
-                    )}
-                  >
-                    <CalendarIcon className="mr-3 h-4 w-4 shrink-0" />
-                    {userData.dob ? format(new Date(userData.dob), "PPP") : <span>DATE OF BIRTH</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 bg-gray-950 border-gray-800 text-black" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={userData.dob ? new Date(userData.dob) : undefined}
-                    onSelect={(date) => setUserData({ ...userData, dob: date ? date.toISOString() : "" })}
-                    captionLayout="dropdown-buttons"
-                    fromYear={1940}
-                    toYear={new Date().getFullYear()}
-                    className="bg-white text-black"
-                    classNames={{
-                      caption_dropdowns: "flex flex-row gap-2 font-medium",
-                      caption_label: "hidden",
-                      vhidden: "hidden",
-                    }}
-                  />
-                </PopoverContent>
-              </Popover>
+              {isAddConnection ? (
+                <div className={cn(lockedClass, "h-[54px] flex items-center")}>
+                  <CalendarIcon className="mr-3 h-4 w-4 shrink-0" />
+                  {userData.dob ? format(new Date(userData.dob), "PPP") : <span>DATE OF BIRTH</span>}
+                </div>
+              ) : (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "bg-black/40 p-4 w-full h-[54px] rounded-xl border border-white/10 text-white outline-none focus:border-ov-primary hover:bg-black/60 hover:text-white transition-all font-bold text-[11px] uppercase justify-start text-left font-normal",
+                        !userData.dob && "text-gray-500",
+                      )}
+                    >
+                      <CalendarIcon className="mr-3 h-4 w-4 shrink-0" />
+                      {userData.dob ? format(new Date(userData.dob), "PPP") : <span>DATE OF BIRTH</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 bg-gray-950 border-gray-800 text-black" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={userData.dob ? new Date(userData.dob) : undefined}
+                      onSelect={(date) => setUserData({ ...userData, dob: date ? date.toISOString() : "" })}
+                      captionLayout="dropdown-buttons"
+                      fromYear={1940}
+                      toYear={new Date().getFullYear()}
+                      className="bg-white text-black"
+                      classNames={{
+                        caption_dropdowns: "flex flex-row gap-2 font-medium",
+                        caption_label: "hidden",
+                        vhidden: "hidden",
+                      }}
+                    />
+                  </PopoverContent>
+                </Popover>
+              )}
             </div>
           </div>
         </div>
