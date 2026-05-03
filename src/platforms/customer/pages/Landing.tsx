@@ -33,7 +33,7 @@ const Landing = () => {
   const isResumeConnection = !!(routerState as any)?.resumeConnectionId;
 
   React.useEffect(() => {
-    if (isAddConnection) return;
+    if (isAddConnection || isResumeConnection) return;
     const saved = localStorage.getItem("oneverge_session") || localStorage.getItem("oneverge_user");
     if (!saved) return;
     try {
@@ -47,7 +47,7 @@ const Landing = () => {
       localStorage.removeItem("oneverge_session");
       localStorage.removeItem("oneverge_user");
     }
-  }, [isAddConnection, navigate]);
+  }, [isAddConnection, isResumeConnection, navigate]);
 
   const state = useOnboardingState(routerState);
   const {
