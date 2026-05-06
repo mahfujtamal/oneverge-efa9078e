@@ -4,8 +4,8 @@ import { Wifi, Globe, MessageSquare, ShieldCheck, Home, CloudUpload, Gamepad2, P
  * BRANDING & IDENTITY
  */
 export const BRANDING_CONFIG = {
-  HERO_TITLE: "One Bill - Unified Services",
-  HERO_SUBTITLE: "Simplified Connectivity and Digital Lifestyle",
+  HERO_TITLE: "Simplified Connectivity and Digital Lifestyle",
+  HERO_SUBTITLE: "",
   PLATFORM_NAME: "OneVerge",
   PLATFORM_TAGLINE: "Bringing Together",
 };
