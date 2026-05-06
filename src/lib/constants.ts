@@ -41,7 +41,7 @@ export const AUDIT_LABELS = {
  * BUTTON LABELS
  */
 export const BUTTON_LABELS = {
-  START_CONFIG: "Build Your Bundle",
+  START_CONFIG: "Configure My Suite",
   FINALIZE_LAYERS: "Confirm",
   VERIFY_IDENTITY: "Verify",
   SETTLE_SCHEDULE: "Settle & Schedule",
