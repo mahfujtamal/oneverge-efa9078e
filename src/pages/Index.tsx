@@ -687,7 +687,7 @@ const Index = () => {
             >
               <div className="text-center mb-12 max-w-4xl">
                 <h2 className="ov-h1 !text-4xl md:!text-6xl leading-[1.1] mb-6 tracking-tightest uppercase font-black">
-                  Simplified Connectivity and Digital Lifestyle
+                  {BRANDING_CONFIG.HERO_TITLE}
                 </h2>
               </div>
 
@@ -711,7 +711,7 @@ const Index = () => {
                 onClick={() => setStep(2)}
                 className="ov-btn-primary !h-16 !px-14 !rounded-2xl shadow-ov-primary/20"
               >
-                Configure My Suite <ChevronRight size={20} className="ml-2" />
+                {PAGE_TITLES.ORCHESTRATE} <ChevronRight size={20} className="ml-2" />
               </Button>
             </motion.div>
           )}
