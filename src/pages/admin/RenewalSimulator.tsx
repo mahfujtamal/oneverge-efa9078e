@@ -19,7 +19,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { ONEVERGE_SUITE_RATES, PRICING_CONFIG } from "@/lib/constants";
+import { ONEVERGE_SUITE_RATES, PRICING_CONFIG } from "@/shared/lib/constants";
 import { Button } from "@/components/ui/button";
 import {
   Card,

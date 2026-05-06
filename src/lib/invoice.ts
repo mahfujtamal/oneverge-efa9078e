@@ -5,7 +5,7 @@
 
 import jsPDF from "jspdf";
 import { supabase } from "@/integrations/supabase/client";
-import { PRICING_CONFIG, ALL_SERVICES, ONEVERGE_SUITE_RATES } from "@/lib/constants";
+import { PRICING_CONFIG, ALL_SERVICES, ONEVERGE_SUITE_RATES } from "@/shared/lib/constants";
 
 export interface InvoiceLineItem {
   label: string;

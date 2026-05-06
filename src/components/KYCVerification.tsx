@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { ShieldCheck, ScanFace, Loader2, CheckCircle2, User } from "lucide-react";
 import { motion } from "framer-motion";
-import { PAGE_TITLES, REGISTRY_LABELS, BRANDING_CONFIG } from "@/lib/constants";
+import { PAGE_TITLES, REGISTRY_LABELS, BRANDING_CONFIG } from "@/shared/lib/constants";
 
 interface KYCProps {
   userData: { name: string; nid: string };

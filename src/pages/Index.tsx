@@ -12,7 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 
 // --- MASTER CONFIGURATION IMPORTS ---
-import { ALL_SERVICES, BRANDING_CONFIG, PAGE_TITLES, BUTTON_LABELS, REGISTRY_LABELS } from "@/lib/constants";
+import { ALL_SERVICES, BRANDING_CONFIG, PAGE_TITLES, BUTTON_LABELS, REGISTRY_LABELS } from "@/shared/lib/constants";
 
 // --- COMPONENT IMPORTS ---
 import ServiceCard from "@/components/ServiceCard";
@@ -570,7 +570,7 @@ const Index = () => {
         const effectiveSpeed = checkoutSpeed ?? selectedOffer?.speed ?? null;
         const effectivePlanId = checkoutBroadbandPlanId ?? selectedOffer?.id ?? null;
 
-        const { ONEVERGE_SUITE_RATES } = await import("@/lib/constants");
+        const { ONEVERGE_SUITE_RATES } = await import("@/shared/lib/constants");
         // Prefer the actual service amount reported by PaymentGateway (which uses
         // the real DB-priced totals). Fall back to a constants-based estimate only
         // when the gateway didn't supply the amount (legacy callers).

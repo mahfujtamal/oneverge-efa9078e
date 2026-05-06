@@ -20,7 +20,7 @@ import {
   PRICING_CONFIG,
   ONEVERGE_SUITE_RATES,
   TELEMETRY_CONFIG,
-} from "@/lib/constants";
+} from "@/shared/lib/constants";
 
 const SupportCenter = () => {
   const navigate = useNavigate();

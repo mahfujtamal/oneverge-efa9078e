@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import PaymentGateway from "@/components/PaymentGateway";
 import Sidebar from "@/components/Sidebar";
 import { Button } from "@/components/ui/button";
-import { PRICING_CONFIG, ONEVERGE_SUITE_RATES } from "@/lib/constants";
+import { PRICING_CONFIG, ONEVERGE_SUITE_RATES } from "@/shared/lib/constants";
 
 const RenewPayment = () => {
   const { state } = useLocation();

@@ -3,7 +3,7 @@ import { Activity, ShieldCheck, CheckCircle2, Loader2, Globe } from "lucide-reac
 // ADD THIS IMPORT
 import { motion } from "framer-motion";
 // IMPORT THE DICTIONARY
-import { PAGE_TITLES, AUDIT_LABELS, BRANDING_CONFIG } from "@/lib/constants";
+import { PAGE_TITLES, AUDIT_LABELS, BRANDING_CONFIG } from "@/shared/lib/constants";
 
 interface FeasibilityProps {
   userData: { address: string };

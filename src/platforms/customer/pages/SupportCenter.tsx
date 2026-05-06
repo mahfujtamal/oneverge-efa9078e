@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Zap, Ticket, MapPin, ShieldCheck } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Sidebar from "@/components/Sidebar";
-import { SUPPORT_LABELS } from "@/lib/constants";
+import { SUPPORT_LABELS } from "@/shared/lib/constants";
 
 import { useTicketData } from "@/platforms/customer/hooks/useTicketData";
 import { useTicketMessaging } from "@/platforms/customer/hooks/useTicketMessaging";

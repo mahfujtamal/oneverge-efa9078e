@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { ArrowRight, Lock, ChevronLeft, CreditCard, Zap, Trash2, PlusCircle } from "lucide-react";
-import { PRICING_CONFIG, ONEVERGE_SUITE_RATES, PAYMENT_CONFIG, REVIEW_LABELS, ALL_SERVICES } from "@/lib/constants";
+import { PRICING_CONFIG, ONEVERGE_SUITE_RATES, PAYMENT_CONFIG, REVIEW_LABELS, ALL_SERVICES } from "@/shared/lib/constants";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";

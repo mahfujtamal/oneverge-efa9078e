@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import { Zap, ChevronRight, Search, ChevronDown, ChevronUp, Loader2, Info } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { INFRA_LABELS, PRICING_CONFIG } from "@/lib/constants";
+import { INFRA_LABELS, PRICING_CONFIG } from "@/shared/lib/constants";
 import { supabase } from "@/integrations/supabase/client";
 
 interface ISPComparisonProps {

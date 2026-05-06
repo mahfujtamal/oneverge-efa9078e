@@ -1,7 +1,7 @@
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { LayoutDashboard, CreditCard, LifeBuoy, LogOut, Zap } from "lucide-react";
-import { DASHBOARD_LABELS, BRANDING_CONFIG } from "@/lib/constants";
+import { DASHBOARD_LABELS, BRANDING_CONFIG } from "@/shared/lib/constants";
 import { Button } from "@/components/ui/button";
 
 interface SidebarProps {
