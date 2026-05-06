@@ -110,7 +110,9 @@ const Index = () => {
     // Restore landing step from the primary customer_connections row.
     // Only userId is read from localStorage — all other data is fetched from the DB.
     let userId: string | null = null;
-    try { userId = JSON.parse(localStorage.getItem("oneverge_session") || "{}").id ?? null; } catch {}
+    try {
+      userId = JSON.parse(localStorage.getItem("oneverge_session") || "{}").id ?? null;
+    } catch {}
     if (!userId) return;
 
     (async () => {
@@ -122,7 +124,9 @@ const Index = () => {
           // New (non-primary) connection in progress — most recent one.
           const { data } = await (supabase as any)
             .from("customer_connections")
-            .select("id, account_status, isp_id, broadband_plan_id, scheduled_services, active_services, address, balance, speed, area_id")
+            .select(
+              "id, account_status, isp_id, broadband_plan_id, scheduled_services, active_services, address, balance, speed, area_id",
+            )
             .eq("customer_id", userId)
             .eq("is_primary", false)
             .in("account_status", ["account created", "feasibility done"])
@@ -134,7 +138,9 @@ const Index = () => {
           // Normal re-login — primary connection only.
           const { data } = await (supabase as any)
             .from("customer_connections")
-            .select("id, account_status, isp_id, broadband_plan_id, scheduled_services, active_services, address, balance, speed, area_id")
+            .select(
+              "id, account_status, isp_id, broadband_plan_id, scheduled_services, active_services, address, balance, speed, area_id",
+            )
             .eq("customer_id", userId)
             .eq("is_primary", true)
             .order("is_primary", { ascending: false })
@@ -160,7 +166,9 @@ const Index = () => {
                   dob: saved.dob || "",
                 }));
               }
-            } catch { /* ignore */ }
+            } catch {
+              /* ignore */
+            }
           }
           return;
         }
@@ -251,7 +259,14 @@ const Index = () => {
               .eq("id", conn.broadband_plan_id)
               .maybeSingle();
             if (fp) {
-              plans = [{ id: fp.id, name: fp.name || fp.speed, speed: fp.speed, price: Number(fp.price ?? fp.base_price ?? 0) }];
+              plans = [
+                {
+                  id: fp.id,
+                  name: fp.name || fp.speed,
+                  speed: fp.speed,
+                  price: Number(fp.price ?? fp.base_price ?? 0),
+                },
+              ];
             }
           }
 
@@ -259,10 +274,9 @@ const Index = () => {
 
           const services: string[] = conn.scheduled_services || [];
           setActive(
-            services.reduce(
-              (acc: Record<string, boolean>, id: string) => ({ ...acc, [id]: true }),
-              { broadband: true },
-            ),
+            services.reduce((acc: Record<string, boolean>, id: string) => ({ ...acc, [id]: true }), {
+              broadband: true,
+            }),
           );
 
           setStep(7);
@@ -934,7 +948,15 @@ const Index = () => {
                     // 1. Validate that the mandatory KYC fields are not empty
                     const requiredFields = isKYCReadonly
                       ? [userData.name, userData.phone, userData.dob, userData.nid, userData.email, userData.address]
-                      : [userData.name, userData.phone, userData.dob, userData.nid, userData.password, userData.email, userData.address];
+                      : [
+                          userData.name,
+                          userData.phone,
+                          userData.dob,
+                          userData.nid,
+                          userData.password,
+                          userData.email,
+                          userData.address,
+                        ];
                     if (requiredFields.some((f) => !f)) {
                       toast.error("Please complete all required fields to verify your identity.");
                       return;
