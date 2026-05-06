@@ -14,7 +14,7 @@ export const BRANDING_CONFIG = {
  * PAGE & SECTION TITLES
  */
 export const PAGE_TITLES = {
-  ORCHESTRATE: "Build Your Bundle",
+  ORCHESTRATE: "Configure My Suite",
   REGISTRY: "KYC Verification",
   SITE_AUDIT: "Connectivity Check",
   INFRA_HUB: "Support Center",
