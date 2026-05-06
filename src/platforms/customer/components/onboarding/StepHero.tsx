@@ -16,7 +16,7 @@ const StepHero = ({ onNext }: StepHeroProps) => (
     className="ov-flex-center min-h-[calc(100vh-64px)] px-6 py-12 ov-hero-glow"
   >
     <div className="text-center mb-12 max-w-4xl">
-      <h2 className="ov-h1 ov-hero-title md:!text-5xl leading-[1.1] mb-6 tracking-tightest uppercase whitespace-nowrap font-mono font-normal text-3xl">
+      <h2 className="ov-h1 ov-hero-title leading-[1.1] mb-6 tracking-tightest uppercase whitespace-nowrap font-mono font-normal !text-3xl">
         {BRANDING_CONFIG.HERO_TITLE}
       </h2>
       <p className="ov-section-label !text-ov-primary/70 normal-case tracking-widest italic">
