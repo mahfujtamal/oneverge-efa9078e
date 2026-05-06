@@ -4,8 +4,8 @@ import { Wifi, Globe, MessageSquare, ShieldCheck, Home, CloudUpload, Gamepad2, P
  * BRANDING & IDENTITY
  */
 export const BRANDING_CONFIG = {
-  HERO_TITLE: "One Bill - Unified Services",
-  HERO_SUBTITLE: "Simplified Connectivity and Digital Lifestyle",
+  HERO_TITLE: "Simplified Connectivity and Digital Lifestyle",
+  HERO_SUBTITLE: "",
   PLATFORM_NAME: "OneVerge",
   PLATFORM_TAGLINE: "Bringing Together",
 };
@@ -14,7 +14,7 @@ export const BRANDING_CONFIG = {
  * PAGE & SECTION TITLES
  */
 export const PAGE_TITLES = {
-  ORCHESTRATE: "Build Your Bundle",
+  ORCHESTRATE: "Configure My Suite",
   REGISTRY: "KYC Verification",
   SITE_AUDIT: "Connectivity Check",
   INFRA_HUB: "Support Center",
@@ -41,7 +41,7 @@ export const AUDIT_LABELS = {
  * BUTTON LABELS
  */
 export const BUTTON_LABELS = {
-  START_CONFIG: "Build Your Bundle",
+  START_CONFIG: "Configure My Suite",
   FINALIZE_LAYERS: "Confirm",
   VERIFY_IDENTITY: "Verify",
   SETTLE_SCHEDULE: "Settle & Schedule",
@@ -152,11 +152,14 @@ export const TELEMETRY_CONFIG = {
   MOCK_IP: "103.145.2.14",
   MOCK_MAC: "48:A1:C3:92",
   BALANCE_COLOR: "#e2136e",
-  MOCK_EXPIRY_DATE: "2028-04-01",
+  MOCK_EXPIRY_DATE: "2028-04-01", // Unified Expiry Control
 };
 
 /**
- * PAYMENT CONFIGURATION
+ * PAYMENT & PRICING
+ */
+/**
+ * PAYMENT CONFIGURATION (Fixes PaymentGateway.tsx error)
  */
 export const PAYMENT_CONFIG = {
   SECURE_CHECKOUT: "Secure Checkout",
@@ -205,7 +208,7 @@ export const ONEVERGE_SUITE_RATES: Record<string, number> = {
   "smart-home": 1200,
   mobility: 900,
   gaming: 450,
-  broadband: 2000,
+  broadband: 0, // Fallback key to prevent calculation errors
 };
 
 export const PRICING_CONFIG = { RELOCATION_FEE: 500, CURRENCY: "BDT " };

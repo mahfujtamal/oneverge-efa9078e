@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ShieldCheck } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
-import { BILLING_LABELS } from "@/lib/constants";
+import { BILLING_LABELS } from "@/shared/lib/constants";
 
 import { useCustomerSession } from "@/platforms/customer/hooks/useCustomerSession";
 import { useRenewalDateCalc } from "@/platforms/customer/hooks/useRenewalDateCalc";

@@ -15,7 +15,7 @@ import {
   ScrollText,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { BILLING_LABELS, ALL_SERVICES, PRICING_CONFIG, ONEVERGE_SUITE_RATES, TELEMETRY_CONFIG } from "@/lib/constants";
+import { BILLING_LABELS, ALL_SERVICES, PRICING_CONFIG, ONEVERGE_SUITE_RATES, TELEMETRY_CONFIG } from "@/shared/lib/constants";
 import { Button } from "@/components/ui/button";
 import Sidebar from "@/components/Sidebar";
 

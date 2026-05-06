@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Wifi, Zap, Activity, CreditCard, ShieldCheck, ArrowRight, Plus, CheckCircle2 } from "lucide-react";
-import { DASHBOARD_LABELS, ALL_SERVICES, PRICING_CONFIG, TELEMETRY_CONFIG } from "@/lib/constants";
+import { DASHBOARD_LABELS, ALL_SERVICES, PRICING_CONFIG, TELEMETRY_CONFIG } from "@/shared/lib/constants";
 import { supabase } from "@/integrations/supabase/client";
 import Sidebar from "@/components/Sidebar";
 import { Button } from "@/components/ui/button";

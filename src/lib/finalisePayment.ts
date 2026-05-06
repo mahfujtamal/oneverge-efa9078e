@@ -15,7 +15,7 @@
 //     email + simulated WhatsApp notification are dispatched.
 
 import { supabase } from "@/integrations/supabase/client";
-import { ONEVERGE_SUITE_RATES, PRICING_CONFIG } from "@/lib/constants";
+import { ONEVERGE_SUITE_RATES, PRICING_CONFIG } from "@/shared/lib/constants";
 import { generateAndUploadInvoice } from "@/lib/invoice";
 import { toast } from "sonner";
 
