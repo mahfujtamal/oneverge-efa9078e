@@ -13,13 +13,13 @@ const StepHero = ({ onNext }: StepHeroProps) => (
     key="s1"
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
-    className="ov-flex-center min-h-[calc(100vh-64px)] px-6 py-12"
+    className="ov-flex-center min-h-[calc(100vh-64px)] px-6 py-12 ov-hero-glow"
   >
     <div className="text-center mb-12 max-w-4xl">
-      <h2 className="ov-h1 text-3xl md:!text-5xl leading-[1.1] mb-6 tracking-tightest uppercase whitespace-nowrap font-mono font-normal">
+      <h2 className="ov-h1 ov-hero-title text-3xl md:!text-5xl leading-[1.1] mb-6 tracking-tightest uppercase whitespace-nowrap font-mono font-normal">
         {BRANDING_CONFIG.HERO_TITLE}
       </h2>
-      <p className="ov-section-label !text-gray-400 normal-case tracking-widest opacity-60 italic">
+      <p className="ov-section-label !text-ov-primary/70 normal-case tracking-widest italic">
         {BRANDING_CONFIG.HERO_SUBTITLE}
       </p>
     </div>
@@ -28,12 +28,12 @@ const StepHero = ({ onNext }: StepHeroProps) => (
       {ALL_SERVICES.map((s) => (
         <div
           key={s.id}
-          className="ov-glass-card p-4 flex flex-col items-center justify-center text-center group border-white/5"
+          className="ov-glass-card p-4 flex flex-col items-center justify-center text-center group cursor-pointer"
         >
-          <div className={`${s.color} mb-3 group-hover:scale-110 transition-transform`}>
+          <div className={`${s.color} mb-3 group-hover:scale-110 group-hover:drop-shadow-[0_0_8px_currentColor] transition-all`}>
             <s.icon size={22} />
           </div>
-          <h3 className="text-[8px] font-black uppercase tracking-widest text-white/70 leading-none">
+          <h3 className="text-[8px] font-black uppercase tracking-widest text-white/70 group-hover:text-ov-primary leading-none transition-colors">
             {s.name}
           </h3>
         </div>
