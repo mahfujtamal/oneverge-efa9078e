@@ -686,7 +686,7 @@ const Index = () => {
               className="ov-flex-center min-h-[calc(100vh-64px)] px-6 py-12"
             >
               <div className="text-center mb-12 max-w-4xl">
-                <h2 className="ov-h1 !text-4xl md:!text-6xl leading-[1.1] mb-6 tracking-tightest uppercase font-black">
+                <h2 className="ov-h1 !text-2xl md:!text-3xl leading-[1.1] mb-6 tracking-tightest uppercase font-black">
                   {BRANDING_CONFIG.HERO_TITLE}
                 </h2>
               </div>
